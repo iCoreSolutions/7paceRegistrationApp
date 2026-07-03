@@ -33,13 +33,19 @@ public partial class App : Application
             settings = settingsStore.Load();
         }
 
-        var token = credentials.LoadToken(settings.OrganizationName)!;
-        var client = new PaceApiClient(Http, settings.OrganizationName, token);
+        // Build the client from current settings each time it's requested, so org/token
+        // changes made via the in-app settings dialog take effect without an app restart.
+        IWorkLogClient ClientFactory()
+        {
+            var s = settingsStore.Load();
+            return new PaceApiClient(Http, s.OrganizationName, credentials.LoadToken(s.OrganizationName) ?? string.Empty);
+        }
+
         var holidays = new SwedishHolidayService(Http, settingsStore);
-        var vm = new MainViewModel(holidays, client, workItemStore, settingsStore);
+        var vm = new MainViewModel(holidays, ClientFactory(), workItemStore, settingsStore);
 
         ShutdownMode = ShutdownMode.OnMainWindowClose;
-        MainWindow = new MainWindow(vm, settingsStore, workItemStore, credentials);
+        MainWindow = new MainWindow(vm, settingsStore, workItemStore, credentials, ClientFactory);
         MainWindow.Show();
     }
 }

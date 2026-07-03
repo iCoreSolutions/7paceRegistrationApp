@@ -13,7 +13,7 @@ public partial class MainViewModel : ObservableObject
     private const int MaxConcurrentSubmits = 4;
 
     private readonly SwedishHolidayService _holidays;
-    private readonly IWorkLogClient _client;
+    private IWorkLogClient _client;
     private readonly SettingsStore _settingsStore;
 
     public ObservableCollection<WorkItem> WorkItems { get; } = [];
@@ -35,6 +35,9 @@ public partial class MainViewModel : ObservableObject
         foreach (var wi in workItemStore.Load()) WorkItems.Add(wi);
         HoursPerDay = settingsStore.Load().LastDailyHours;
     }
+
+    /// <summary>Swap in a client rebuilt from updated org/token so settings changes take effect without an app restart.</summary>
+    public void UpdateClient(IWorkLogClient client) => _client = client;
 
     private WorkItem Favorite => WorkItems.FirstOrDefault(w => w.IsFavorite) ?? WorkItems[0];
 
