@@ -7,3 +7,4 @@
 - Plan deviation: spec's "open settings dialog automatically on 401" simplified to per-row error + menu access (documented in plan self-review).
 - .NET 10 SDK 'dotnet new sln' emits .slnx (XML) not .sln; functionally equivalent, avoid hard-coding .sln extension in CI.
 - Namespaces can't start with a digit: 7PaceDesktop.* projects use RootNamespace PaceDesktop.*
+- 7Pace workLogs payload shape (Bearer auth, api-version=3.2, length in seconds) is UNVERIFIED against a live instance; pinned by tests, must be confirmed live in Task 10 before real use.

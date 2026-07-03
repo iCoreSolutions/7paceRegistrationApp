@@ -8,3 +8,5 @@
 - 2026-07-03: Task 4 added SwedishHolidayService (Nager.Date fetch, per-year cache in settings, offline fallback via IsIncomplete); DateOnly parses natively with System.Text.Json on .NET 10; 13 tests green.
 - 2026-07-03: Task 5 added CredentialStore wrapping Windows Credential Manager (Meziantou 2.0.2) for the 7Pace token, keyed 7PaceDesktop:{org}; real round-trip test; 14 tests green.
 - 2026-07-03: Task 6 added IWorkLogClient/PaceApiClient/PaceApiException in PaceDesktop.Core.Services, posting TimeEntry to the 7Pace workLogs endpoint; contract is UNVERIFIED (no live-instance access this session) and marked as such in code — live verification deferred to Task 10; 16 tests green.
+- 2026-07-03: Task 6 added IWorkLogClient/PaceApiClient/PaceApiException (best-effort, unverified contract); 16 tests green.
+- 2026-07-03: Task 7 added MainViewModel/EntryRowViewModel (CommunityToolkit.Mvvm) in PaceDesktop.App.ViewModels: GenerateCommand (holiday-aware generation with favorite work item default), RegisterCommand (max-4-concurrent submit with per-row Pending/Sending/Ok/Failed status), Simulate mode, RetryRowCommand; Tests project now references App; 20 tests green.

@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\7PaceDesktop.Core\7PaceDesktop.Core.csproj" />
+    <ProjectReference Include="..\..\src\7PaceDesktop.App\7PaceDesktop.App.csproj" />
   </ItemGroup>
 
 </Project>
