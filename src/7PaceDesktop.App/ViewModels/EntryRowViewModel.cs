@@ -15,5 +15,9 @@ public partial class EntryRowViewModel(DateOnly date, double hours, WorkItem wor
     [ObservableProperty] private RowStatus _status = RowStatus.Pending;
     [ObservableProperty] private string? _error;
 
+    // True when this row's date has been split (2+ rows) and the day's rows
+    // don't sum to the originally-generated target. Bound to a grid highlight.
+    [ObservableProperty] private bool _isDayUnbalanced;
+
     public TimeEntry ToEntry() => new(Date, Hours, SelectedWorkItem.Id, HitZeroFloor);
 }

@@ -36,8 +36,12 @@
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
                     <Style.Triggers>
+                        <!-- Translucent tints so they read on both light and dark themes. -->
                         <DataTrigger Binding="{Binding HitZeroFloor}" Value="True">
-                            <Setter Property="Background" Value="#FFF3CD"/>
+                            <Setter Property="Background" Value="#33FFC107"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsDayUnbalanced}" Value="True">
+                            <Setter Property="Background" Value="#40E81123"/>
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
@@ -56,10 +60,14 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" IsReadOnly="True" Width="70"/>
                 <DataGridTextColumn Header="Fel" Binding="{Binding Error}" IsReadOnly="True" Width="140"/>
-                <DataGridTemplateColumn Width="130">
+                <DataGridTemplateColumn Width="210">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
+                                <Button Content="Dela" Margin="0,0,4,0"
+                                        ToolTip="Lägg till ett work item på samma dag"
+                                        Command="{Binding DataContext.SplitRowCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}"/>
                                 <Button Content="Skicka om" Margin="0,0,4,0"
                                         Command="{Binding DataContext.RetryRowCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                         CommandParameter="{Binding}"/>

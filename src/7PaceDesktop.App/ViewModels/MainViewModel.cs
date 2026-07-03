@@ -12,9 +12,14 @@ public partial class MainViewModel : ObservableObject
 {
     private const int MaxConcurrentSubmits = 4;
 
+    private const double BalanceEpsilon = 0.001;
+
     private readonly SwedishHolidayService _holidays;
     private IWorkLogClient _client;
     private readonly SettingsStore _settingsStore;
+
+    // Originally-generated target hours per date, used to flag unbalanced split days.
+    private readonly Dictionary<DateOnly, double> _dayTargets = new();
 
     public ObservableCollection<WorkItem> WorkItems { get; } = [];
     public ObservableCollection<EntryRowViewModel> Entries { get; } = [];
@@ -56,25 +61,60 @@ public partial class MainViewModel : ObservableObject
 
         foreach (var existing in Entries) existing.PropertyChanged -= OnRowPropertyChanged;
         Entries.Clear();
+        _dayTargets.Clear();
         foreach (var e in TimeEntryGenerator.Generate(from, to, HoursPerDay, lookup.Dates, favorite.Id))
         {
+            _dayTargets[e.Date] = e.Hours;
             var row = new EntryRowViewModel(e.Date, e.Hours, favorite, e.HitZeroFloor);
             row.PropertyChanged += OnRowPropertyChanged;
             Entries.Add(row);
         }
         RecalculateTotal();
+        RecalculateBalance();
 
         var settings = _settingsStore.Load();
         settings.LastDailyHours = HoursPerDay;
         _settingsStore.Save(settings);
     }
 
+    /// <summary>Add another work item to a day: inserts a 0h sibling row for the same date.</summary>
+    [RelayCommand]
+    private void SplitRow(EntryRowViewModel row)
+    {
+        var newRow = new EntryRowViewModel(row.Date, 0, Favorite, hitZeroFloor: false);
+        newRow.PropertyChanged += OnRowPropertyChanged;
+
+        var lastIndexForDate = -1;
+        for (var i = 0; i < Entries.Count; i++)
+            if (Entries[i].Date == row.Date) lastIndexForDate = i;
+        Entries.Insert(lastIndexForDate + 1, newRow);
+
+        RecalculateTotal();
+        RecalculateBalance();
+    }
+
     private void OnRowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(EntryRowViewModel.Hours)) RecalculateTotal();
+        if (e.PropertyName != nameof(EntryRowViewModel.Hours)) return;
+        RecalculateTotal();
+        RecalculateBalance();
     }
 
     public void RecalculateTotal() => TotalHours = Entries.Sum(r => r.Hours);
+
+    // Flag days that have been split (2+ rows) whose hours don't sum to the day's target.
+    // Single-row days are never flagged — a lone edited value is treated as intentional.
+    public void RecalculateBalance()
+    {
+        foreach (var group in Entries.GroupBy(r => r.Date))
+        {
+            var rows = group.ToList();
+            var unbalanced = rows.Count >= 2
+                && _dayTargets.TryGetValue(group.Key, out var target)
+                && Math.Abs(rows.Sum(r => r.Hours) - target) > BalanceEpsilon;
+            foreach (var r in rows) r.IsDayUnbalanced = unbalanced;
+        }
+    }
 
     [RelayCommand]
     private async Task RegisterAsync()
@@ -122,5 +162,6 @@ public partial class MainViewModel : ObservableObject
         row.PropertyChanged -= OnRowPropertyChanged;
         Entries.Remove(row);
         RecalculateTotal();
+        RecalculateBalance();
     }
 }
