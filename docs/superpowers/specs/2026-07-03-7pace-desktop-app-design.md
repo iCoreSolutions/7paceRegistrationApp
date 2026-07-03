@@ -43,7 +43,7 @@ Core behavior the user wants:
 ```csharp
 record WorkItem(int Id, string Name, bool IsFavorite);
 record Holiday(DateOnly Date, string Name);
-record TimeEntry(DateOnly Date, double Hours, int WorkItemId, string? Comment);
+record TimeEntry(DateOnly Date, double Hours, int WorkItemId);
 ```
 
 ## Components
@@ -151,4 +151,6 @@ record TimeEntry(DateOnly Date, double Hours, int WorkItemId, string? Comment);
   against iCore's actual 7Pace instance API documentation
   (`https://<org>.timetracker.7pace.com/api/rest/help`). This must be
   confirmed (or corrected) early in implementation, ideally before
-  building the rest of the app around it.
+  building the rest of the app around it. Since the app sends no comment
+  text (see Non-goals), confirm whether the `comment` field can be omitted
+  entirely or must be sent as an empty string.
