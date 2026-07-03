@@ -42,6 +42,7 @@ public partial class MainViewModel : ObservableObject
     private async Task GenerateAsync()
     {
         if (StartDate is not { } start || EndDate is not { } end || WorkItems.Count == 0) return;
+        var favorite = Favorite;
         var from = DateOnly.FromDateTime(start);
         var to = DateOnly.FromDateTime(end);
 
@@ -50,14 +51,24 @@ public partial class MainViewModel : ObservableObject
             ? "Kunde inte hämta röda dagar — alla dagar behandlas som vanliga arbetsdagar."
             : null;
 
+        foreach (var existing in Entries) existing.PropertyChanged -= OnRowPropertyChanged;
         Entries.Clear();
-        foreach (var e in TimeEntryGenerator.Generate(from, to, HoursPerDay, lookup.Dates, Favorite.Id))
-            Entries.Add(new EntryRowViewModel(e.Date, e.Hours, Favorite, e.HitZeroFloor));
+        foreach (var e in TimeEntryGenerator.Generate(from, to, HoursPerDay, lookup.Dates, favorite.Id))
+        {
+            var row = new EntryRowViewModel(e.Date, e.Hours, favorite, e.HitZeroFloor);
+            row.PropertyChanged += OnRowPropertyChanged;
+            Entries.Add(row);
+        }
         RecalculateTotal();
 
         var settings = _settingsStore.Load();
         settings.LastDailyHours = HoursPerDay;
         _settingsStore.Save(settings);
+    }
+
+    private void OnRowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(EntryRowViewModel.Hours)) RecalculateTotal();
     }
 
     public void RecalculateTotal() => TotalHours = Entries.Sum(r => r.Hours);
@@ -80,6 +91,10 @@ public partial class MainViewModel : ObservableObject
 
     private async Task SubmitRowAsync(EntryRowViewModel row)
     {
+        // These scalar property mutations may run on threadpool continuations after the
+        // awaited submit; WPF auto-marshals scalar PropertyChanged for data-bound properties,
+        // and Entries is never mutated off the UI thread, so this is intentional —
+        // do NOT wrap these in Dispatcher.Invoke (that would risk deadlock).
         row.Status = RowStatus.Sending;
         row.Error = null;
         if (Simulate)
@@ -101,6 +116,7 @@ public partial class MainViewModel : ObservableObject
 
     public void RemoveRow(EntryRowViewModel row)
     {
+        row.PropertyChanged -= OnRowPropertyChanged;
         Entries.Remove(row);
         RecalculateTotal();
     }

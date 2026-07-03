@@ -8,3 +8,4 @@
 - .NET 10 SDK 'dotnet new sln' emits .slnx (XML) not .sln; functionally equivalent, avoid hard-coding .sln extension in CI.
 - Namespaces can't start with a digit: 7PaceDesktop.* projects use RootNamespace PaceDesktop.*
 - 7Pace workLogs payload shape (Bearer auth, api-version=3.2, length in seconds) is UNVERIFIED against a live instance; pinned by tests, must be confirmed live in Task 10 before real use.
+- v1 limitation: PaceApiClient is built once at startup, so org/token changes via the in-app settings dialog only take effect after an app restart.

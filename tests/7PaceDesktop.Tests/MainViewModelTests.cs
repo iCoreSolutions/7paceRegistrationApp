@@ -109,4 +109,39 @@ public class MainViewModelTests : IDisposable
         Assert.Equal(RowStatus.Ok, failed.Status);
         Assert.Equal(5, client.Submitted.Count);
     }
+
+    [Fact]
+    public async Task Generate_ThenEditRowHours_UpdatesTotal()
+    {
+        var vm = CreateVm(new FakeWorkLogClient());
+        vm.StartDate = new DateTime(2026, 7, 6);
+        vm.EndDate = new DateTime(2026, 7, 7);
+        vm.HoursPerDay = 8;
+
+        await vm.GenerateCommand.ExecuteAsync(null);
+
+        Assert.Equal(16, vm.TotalHours);
+
+        vm.Entries[0].Hours = 4;
+
+        Assert.Equal(12, vm.TotalHours);
+    }
+
+    [Fact]
+    public async Task RemoveRow_UnsubscribesRow()
+    {
+        var vm = CreateVm(new FakeWorkLogClient());
+        vm.StartDate = new DateTime(2026, 7, 6);
+        vm.EndDate = new DateTime(2026, 7, 7);
+        vm.HoursPerDay = 8;
+        await vm.GenerateCommand.ExecuteAsync(null);
+
+        var removed = vm.Entries[0];
+        vm.RemoveRow(removed);
+        var totalAfterRemove = vm.TotalHours;
+
+        removed.Hours = 100;
+
+        Assert.Equal(totalAfterRemove, vm.TotalHours);
+    }
 }
