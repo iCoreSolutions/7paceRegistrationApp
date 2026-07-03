@@ -4,3 +4,7 @@
 - 2026-07-03: Wrote full TDD implementation plan (10 tasks) at docs/superpowers/plans/2026-07-03-7pace-desktop-app.md.
 - 2026-07-03: Started SDD execution of 7PaceDesktop; Task 1 scaffolded the 3-project .NET 10 solution (Core/App/Tests).
 - 2026-07-03: Task 2 built domain models (WorkItem/Holiday/TimeEntry) and TimeEntryGenerator with the pre-holiday 3h-shortening rule; 6 unit tests green.
+- 2026-07-03: Task 3 added JSON persistence (SettingsStore, WorkItemStore, AppSettings, AppPaths) under PaceDesktop.Core.Storage; WorkItemStore ships empty; 9 tests green.
+- 2026-07-03: Task 4 added SwedishHolidayService (Nager.Date fetch, per-year cache in settings, offline fallback via IsIncomplete); DateOnly parses natively with System.Text.Json on .NET 10; 13 tests green.
+- 2026-07-03: Task 5 added CredentialStore wrapping Windows Credential Manager (Meziantou 2.0.2) for the 7Pace token, keyed 7PaceDesktop:{org}; real round-trip test; 14 tests green.
+- 2026-07-03: Task 6 added IWorkLogClient/PaceApiClient/PaceApiException in PaceDesktop.Core.Services, posting TimeEntry to the 7Pace workLogs endpoint; contract is UNVERIFIED (no live-instance access this session) and marked as such in code — live verification deferred to Task 10; 16 tests green.
