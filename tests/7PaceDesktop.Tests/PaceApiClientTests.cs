@@ -28,14 +28,33 @@ public class PaceApiClientTests
         await client.SubmitAsync(new TimeEntry(new DateOnly(2026, 7, 1), 7.5, 79023));
 
         Assert.Equal(HttpMethod.Post, handler.Request!.Method);
-        Assert.StartsWith("https://icore.timetracker.7pace.com/api/rest/workLogs", handler.Request.RequestUri!.ToString());
+        Assert.StartsWith("https://icore.timehub.7pace.com/api/rest/workLogs", handler.Request.RequestUri!.ToString());
         Assert.Equal("Bearer", handler.Request.Headers.Authorization!.Scheme);
         Assert.Equal("tok123", handler.Request.Headers.Authorization.Parameter);
 
         using var doc = JsonDocument.Parse(handler.Body!);
         Assert.Equal(79023, doc.RootElement.GetProperty("workItemId").GetInt32());
         Assert.Equal(27000, doc.RootElement.GetProperty("length").GetInt32()); // 7.5h in seconds
-        Assert.StartsWith("2026-07-01T", doc.RootElement.GetProperty("timestamp").GetString());
+        Assert.StartsWith("2026-07-01T", doc.RootElement.GetProperty("timeStamp").GetString());
+    }
+
+    [Theory]
+    [InlineData("icore", "icore")]
+    [InlineData("  icore  ", "icore")]
+    [InlineData("https://icore.timehub.7pace.com/api", "icore")]
+    [InlineData("icore.timehub.7pace.com", "icore")]
+    public void NormalizeAccount_ExtractsAccountLabel(string input, string expected)
+    {
+        Assert.Equal(expected, PaceApiClient.NormalizeAccount(input));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("iCore v3")] // project name with a space is not a valid account
+    public void NormalizeAccount_RejectsInvalidInput(string input)
+    {
+        Assert.Throws<ArgumentException>(() => PaceApiClient.NormalizeAccount(input));
     }
 
     [Fact]

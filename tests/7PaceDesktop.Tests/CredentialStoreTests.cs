@@ -2,6 +2,9 @@ using PaceDesktop.Core.Services;
 
 namespace PaceDesktop.Tests;
 
+// Serialized with other Credential-Manager-backed tests: concurrent access to the real
+// Windows Credential Manager (even with unique keys) races and fails intermittently.
+[Collection("CredentialManager")]
 public class CredentialStoreTests
 {
     [Fact]

@@ -4,6 +4,8 @@ using PaceDesktop.Core.Storage;
 
 namespace PaceDesktop.Tests;
 
+// Serialized with other Credential-Manager-backed tests (see CredentialStoreTests).
+[Collection("CredentialManager")]
 public class SetupViewModelTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "7PaceDesktopTests", Guid.NewGuid().ToString("N"));
