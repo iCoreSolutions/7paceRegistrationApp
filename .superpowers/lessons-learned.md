@@ -9,3 +9,5 @@
 - Namespaces can't start with a digit: 7PaceDesktop.* projects use RootNamespace PaceDesktop.*
 - 7Pace workLogs payload shape (Bearer auth, api-version=3.2, length in seconds) is UNVERIFIED against a live instance; pinned by tests, must be confirmed live in Task 10 before real use.
 - v1 limitation: PaceApiClient is built once at startup, so org/token changes via the in-app settings dialog only take effect after an app restart.
+- 7Pace CLOUD REST API (verified vs official docs 2026-07-03): base is https://{account}.timehub.7pace.com/api/rest/workLogs?api-version=3.2 (NOT timetracker.7pace.com). {account} = the Azure DevOps org (e.g. "icore"), never the project. Create-worklog body: { workItemId:int, timeStamp:ISO8601 (capital S), length:seconds:int, optional comment/billableLength/userId/activityTypeId }. Auth: Authorization: Bearer {token} from 7Pace Settings > Reporting and API. Find your exact API URL there.
+- Credential-Manager-backed xUnit tests must share one [Collection] — concurrent real Credential Manager access races and fails intermittently even with unique keys.
