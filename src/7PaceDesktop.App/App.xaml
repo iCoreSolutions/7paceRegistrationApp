@@ -1,9 +1,9 @@
-﻿<Application x:Class="PaceDesktop.App.App"
+<Application x:Class="PaceDesktop.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:PaceDesktop.App"
-             StartupUri="MainWindow.xaml">
+             xmlns:conv="clr-namespace:PaceDesktop.App.Converters">
     <Application.Resources>
-         
+        <conv:FavoriteWeightConverter x:Key="FavoriteWeightConverter"/>
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsedConverter"/>
     </Application.Resources>
 </Application>
