@@ -29,7 +29,7 @@ public partial class MainWindow : Window
         _themeService = themeService;
         DataContext = vm;
 
-        Loaded += (_, _) => _themeService.Apply(_settingsStore.Load().Theme, this);
+        _themeService.Apply(_settingsStore.Load().Theme);
     }
 
     private void OnThemeSystem(object sender, RoutedEventArgs e) => SetTheme(ThemePreference.System);
@@ -41,7 +41,7 @@ public partial class MainWindow : Window
         var settings = _settingsStore.Load();
         settings.Theme = preference;
         _settingsStore.Save(settings);
-        _themeService.Apply(preference, this);
+        _themeService.Apply(preference);
     }
 
     private void OnOpenSettings(object sender, RoutedEventArgs e)

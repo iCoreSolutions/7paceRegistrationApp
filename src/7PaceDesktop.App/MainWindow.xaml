@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="7PaceDesktop" Width="760" Height="560" WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource ApplicationBackgroundBrush}"
-        TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+        Background="{DynamicResource AppBackground}"
+        TextElement.Foreground="{DynamicResource AppForeground}">
     <DockPanel Margin="12">
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_Inställningar">
@@ -24,7 +24,8 @@
             <DatePicker SelectedDate="{Binding EndDate}" Margin="4,0,12,0"/>
             <TextBlock Text="Timmar/dag:" VerticalAlignment="Center"/>
             <TextBox Width="50" Margin="4,0,12,0" Text="{Binding HoursPerDay, UpdateSourceTrigger=PropertyChanged}"/>
-            <Button Content="Generera" Command="{Binding GenerateCommand}" Padding="16,4"/>
+            <Button Content="Generera" Command="{Binding GenerateCommand}" Padding="16,6"
+                    Style="{StaticResource AccentButton}"/>
         </StackPanel>
 
         <TextBlock DockPanel.Dock="Top" Text="{Binding Warning}" Foreground="DarkOrange"
@@ -36,7 +37,8 @@
             </TextBlock>
             <CheckBox Content="Simulera (skicka inget)" IsChecked="{Binding Simulate}"
                       VerticalAlignment="Center" Margin="0,0,16,0"/>
-            <Button Content="Registrera" Command="{Binding RegisterCommand}" Padding="24,6"/>
+            <Button Content="Registrera" Command="{Binding RegisterCommand}" Padding="24,6"
+                    Style="{StaticResource AccentButton}"/>
         </StackPanel>
 
         <DataGrid ItemsSource="{Binding Entries}" AutoGenerateColumns="False" CanUserAddRows="False">
