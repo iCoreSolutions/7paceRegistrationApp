@@ -1,4 +1,5 @@
 using System.Windows;
+using PaceDesktop.App.Services;
 using PaceDesktop.App.ViewModels;
 using PaceDesktop.App.Views;
 using PaceDesktop.Core.Services;
@@ -13,9 +14,11 @@ public partial class MainWindow : Window
     private readonly WorkItemStore _workItemStore;
     private readonly CredentialStore _credentials;
     private readonly Func<IWorkLogClient> _clientFactory;
+    private readonly ThemeService _themeService;
 
     public MainWindow(MainViewModel vm, SettingsStore settingsStore,
-        WorkItemStore workItemStore, CredentialStore credentials, Func<IWorkLogClient> clientFactory)
+        WorkItemStore workItemStore, CredentialStore credentials,
+        Func<IWorkLogClient> clientFactory, ThemeService themeService)
     {
         InitializeComponent();
         _vm = vm;
@@ -23,7 +26,22 @@ public partial class MainWindow : Window
         _workItemStore = workItemStore;
         _credentials = credentials;
         _clientFactory = clientFactory;
+        _themeService = themeService;
         DataContext = vm;
+
+        Loaded += (_, _) => _themeService.Apply(_settingsStore.Load().Theme, this);
+    }
+
+    private void OnThemeSystem(object sender, RoutedEventArgs e) => SetTheme(ThemePreference.System);
+    private void OnThemeLight(object sender, RoutedEventArgs e) => SetTheme(ThemePreference.Light);
+    private void OnThemeDark(object sender, RoutedEventArgs e) => SetTheme(ThemePreference.Dark);
+
+    private void SetTheme(ThemePreference preference)
+    {
+        var settings = _settingsStore.Load();
+        settings.Theme = preference;
+        _settingsStore.Save(settings);
+        _themeService.Apply(preference, this);
     }
 
     private void OnOpenSettings(object sender, RoutedEventArgs e)

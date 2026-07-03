@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Windows;
+using PaceDesktop.App.Services;
 using PaceDesktop.App.ViewModels;
 using PaceDesktop.App.Views;
 using PaceDesktop.Core.Services;
@@ -45,7 +46,7 @@ public partial class App : Application
         var vm = new MainViewModel(holidays, ClientFactory(), workItemStore, settingsStore);
 
         ShutdownMode = ShutdownMode.OnMainWindowClose;
-        MainWindow = new MainWindow(vm, settingsStore, workItemStore, credentials, ClientFactory);
+        MainWindow = new MainWindow(vm, settingsStore, workItemStore, credentials, ClientFactory, new ThemeService());
         MainWindow.Show();
     }
 }
