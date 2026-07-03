@@ -2,7 +2,7 @@
 using System.Data;
 using System.Windows;
 
-namespace _7PaceDesktop.App;
+namespace PaceDesktop.App;
 
 /// <summary>
 /// Interaction logic for App.xaml

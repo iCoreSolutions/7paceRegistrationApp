@@ -5,3 +5,5 @@
 - Context7 MCP server was not connected in this session, so 7Pace API docs could not be looked up through it; fell back to best-known API patterns instead.
 - Because other iCore staff will use this app with different work items, the app must ship with zero hardcoded/pre-seeded work items — each installation's `workitems.json` (under `%AppData%`) starts empty and is filled via a mandatory first-run wizard.
 - Plan deviation: spec's "open settings dialog automatically on 401" simplified to per-row error + menu access (documented in plan self-review).
+- .NET 10 SDK 'dotnet new sln' emits .slnx (XML) not .sln; functionally equivalent, avoid hard-coding .sln extension in CI.
+- Namespaces can't start with a digit: 7PaceDesktop.* projects use RootNamespace PaceDesktop.*
