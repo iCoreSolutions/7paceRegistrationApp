@@ -27,3 +27,4 @@
 - Register endpoint refetches worklogs and rebuilds the plan before posting, returning 409 if that read fails — makes client staleness impossible instead of policing it in the UI.
 - Server endpoint tests need an ITokenSource seam; without it every WebApplicationFactory test reads and writes the developer's real Credential Manager entry.
 - Bash heredocs truncate on large content in this environment (failed twice around 100-140 lines). Write long files with the Write tool, or write a part file and `cat >>` it.
+- Plan self-review pays off on component-signature drift: a later task that adds props to a React component silently invalidates the render() calls in an earlier task's test file — check every cross-task type and prop change before handing a plan to executors.
