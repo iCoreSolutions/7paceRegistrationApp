@@ -22,6 +22,9 @@ export function SelectionPanel({ month, workItems, selected, onRegistered, onCle
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<RegisterResponse | null>(null)
+  // Captured at submit time, not read live from `simulate`: the checkbox may change again
+  // before the user looks at this result, but the message must describe what actually ran.
+  const [resultSimulated, setResultSimulated] = useState(false)
 
   // One line on the favourite at the full target is the common case, so it is the default.
   useEffect(() => {
@@ -41,9 +44,11 @@ export function SelectionPanel({ month, workItems, selected, onRegistered, onCle
     setBusy(true)
     setError(null)
     setResult(null)
+    const usedSimulate = simulate
     try {
-      const response = await api.register({ dates: selected, lines, simulate })
+      const response = await api.register({ dates: selected, lines, simulate: usedSimulate })
       setResult(response)
+      setResultSimulated(usedSimulate)
       onRegistered(response)
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Okänt fel.')
@@ -204,10 +209,19 @@ export function SelectionPanel({ month, workItems, selected, onRegistered, onCle
 
       {result && (
         <div className="flex flex-col gap-1 text-xs">
+          {/* Simulate never posts, so the outcome message must never read like a real post
+              did happen — that is the one mistake here that is not undoable by hand. */}
+          {resultSimulated && (
+            <span className="font-semibold" style={{ color: 'var(--warn)' }}>
+              Simulering – inget skickades till 7Pace.
+            </span>
+          )}
           <span style={{ color: 'var(--subtle)' }}>
-            {result.failedEntries === 0
-              ? `${result.postedEntries} poster registrerade.`
-              : `${result.postedEntries} registrerade, ${result.failedEntries} misslyckades.`}
+            {resultSimulated
+              ? `${result.postedEntries} poster skulle ha registrerats${result.failedEntries > 0 ? `, ${result.failedEntries} skulle ha misslyckats` : ''}.`
+              : result.failedEntries === 0
+                ? `${result.postedEntries} poster registrerade.`
+                : `${result.postedEntries} registrerade, ${result.failedEntries} misslyckades.`}
           </span>
           {result.days.filter((d) => d.status !== 'ok').map((day) => (
             <span key={day.date} style={{ color: 'var(--danger)' }}>{day.date}: {day.error}</span>
@@ -224,10 +238,21 @@ export function SelectionPanel({ month, workItems, selected, onRegistered, onCle
           type="button"
           disabled={!canRegister}
           onClick={() => void register()}
-          className="h-9.5 rounded-md border text-sm font-semibold disabled:opacity-50"
-          style={{ borderColor: 'var(--accent)', background: 'var(--accent)', color: 'var(--accent-fg)' }}
+          className="flex h-9.5 items-center justify-center gap-1.5 rounded-md border text-sm font-semibold disabled:opacity-50"
+          style={{
+            // Border colour is the visible tell that this run will not touch 7Pace — the fill
+            // stays the proven accent/accent-fg contrast pair rather than a re-coloured one.
+            borderColor: simulate ? 'var(--warn)' : 'var(--accent)',
+            background: 'var(--accent)',
+            color: 'var(--accent-fg)',
+          }}
         >
-          {busy ? 'Registrerar…' : blocked ? 'Registrera' : `Registrera ${hours(summary.totalHours)} h`}
+          {simulate && !busy && <Warning />}
+          {busy
+            ? (simulate ? 'Simulerar…' : 'Registrerar…')
+            : blocked
+              ? 'Registrera'
+              : `Registrera ${hours(summary.totalHours)} h${simulate ? ' (simulering)' : ''}`}
         </button>
         <span className="text-center text-[11px]" style={{ color: 'var(--subtle)' }}>
           {blocked ? 'Blockerad tills tiden är hämtad' : 'Kalendern hämtas om från 7Pace efteråt'}
