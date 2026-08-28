@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/7PaceDesktop.App/7PaceDesktop.App.csproj" />
     <Project Path="src/7PaceDesktop.Core/7PaceDesktop.Core.csproj" />
+    <Project Path="src/7PaceDesktop.Server/7PaceDesktop.Server.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/7PaceDesktop.Tests/7PaceDesktop.Tests.csproj" />
