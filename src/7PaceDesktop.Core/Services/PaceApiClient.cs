@@ -35,6 +35,14 @@ public sealed partial class PaceApiClient(HttpClient http, string organization, 
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var response = await http.SendAsync(request, ct);
+        await EnsureSuccessAsync(response, ct);
+    }
+
+    // Shared by every request path so a future change to the error message format (or to
+    // what gets logged/redacted, given the token-never-in-a-response constraint) has one
+    // call site instead of several to keep in sync.
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken ct)
+    {
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
@@ -65,12 +73,7 @@ public sealed partial class PaceApiClient(HttpClient http, string organization, 
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             using var response = await http.SendAsync(request, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                var error = await response.Content.ReadAsStringAsync(ct);
-                throw new PaceApiException((int)response.StatusCode,
-                    $"7Pace API error {(int)response.StatusCode}: {error}");
-            }
+            await EnsureSuccessAsync(response, ct);
 
             using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
             var page = ParseWorkLogs(doc.RootElement);
