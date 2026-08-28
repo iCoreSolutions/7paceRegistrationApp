@@ -173,13 +173,13 @@ export function SelectionPanel({ month, workItems, selected, onRegistered }: Pro
             {summary.emptyDays > 0 && (
               <Row
                 label={`${summary.emptyDays} ${summary.emptyDays === 1 ? 'tom dag' : 'tomma dagar'}`}
-                value={`${hours(summary.emptyDays * month.dailyHours)} h`}
+                value={`${hours(summary.emptyHours)} h`}
               />
             )}
             {summary.partialDays > 0 && (
               <Row
                 label={`${summary.partialDays} delvis ${summary.partialDays === 1 ? 'dag' : 'dagar'}`}
-                value={`${hours(summary.totalHours - summary.emptyDays * month.dailyHours)} h`}
+                value={`${hours(summary.partialHours)} h`}
                 color="var(--warn)"
               />
             )}

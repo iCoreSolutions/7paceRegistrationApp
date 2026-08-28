@@ -88,6 +88,30 @@ describe('SelectionPanel', () => {
     expect(screen.getByRole('button', { name: /Registrera 29 h/ })).toBeInTheDocument()
   })
 
+  it('sums empty/partial hours from each day\'s own remaining, not count * dailyHours', () => {
+    // A day immediately before a holiday is shortened by WorkSchedule (e.g. to 5h of an 8h
+    // target) but still classifies as Empty until something is logged against it. The empty
+    // and partial rows must reflect that day's actual remaining hours, not assume every empty
+    // day owes the full daily target - that overstates the empty total and can drive the
+    // partial total negative.
+    const m = month()
+    m.days.find((d) => d.date === '2026-06-24')!.expected = 5
+    m.days.find((d) => d.date === '2026-06-24')!.remaining = 5
+    m.days.find((d) => d.date === '2026-06-25')!.logged = 6
+    m.days.find((d) => d.date === '2026-06-25')!.remaining = 2
+    m.days.find((d) => d.date === '2026-06-25')!.status = 'partial'
+
+    panel({ month: m, selected: ['2026-06-22', '2026-06-23', '2026-06-24', '2026-06-25'] })
+
+    // Three empty days (8 + 8 + the shortened 5) sum to 21h, not the naive 3 * 8 = 24h.
+    expect(screen.getByText('21 h')).toBeInTheDocument()
+    expect(screen.queryByText('24 h')).not.toBeInTheDocument()
+    // The lone partial day is 2h on its own - never a negative number.
+    expect(screen.getByText('2 h')).toBeInTheDocument()
+    // The two rows plus the (zero) skipped total must reconcile with the grand total.
+    expect(screen.getByRole('button', { name: /Registrera 23 h/ })).toBeInTheDocument()
+  })
+
   it('posts the selection and the lines, then reports back', async () => {
     const onRegistered = vi.fn()
     vi.mocked(api.register).mockResolvedValue({

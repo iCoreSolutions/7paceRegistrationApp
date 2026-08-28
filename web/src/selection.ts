@@ -62,7 +62,12 @@ export function plannedFor(month: Month, date: string): number {
 
 export interface FillSummaryView {
   emptyDays: number
+  // Hours are accumulated from day.remaining, never derived as count * dailyHours: a day before
+  // a holiday is shortened by three hours and still classifies as Empty, so multiplying would
+  // overstate the empty total and drive the partial total negative.
+  emptyHours: number
   partialDays: number
+  partialHours: number
   skippedDays: number
   totalHours: number
 }
@@ -73,6 +78,9 @@ export function summarize(month: Month, selected: string[]): FillSummaryView {
   let skippedDays = 0
   let totalHours = 0
 
+  let emptyHours = 0
+  let partialHours = 0
+
   for (const date of selected) {
     const day = month.days.find((d) => d.date === date)
     if (!day || day.status === 'nonWorking' || day.status === 'unknown') continue
@@ -81,10 +89,15 @@ export function summarize(month: Month, selected: string[]): FillSummaryView {
       skippedDays += 1
       continue
     }
-    if (day.status === 'empty') emptyDays += 1
-    else partialDays += 1
+    if (day.status === 'empty') { emptyDays += 1; emptyHours += day.remaining }
+    else { partialDays += 1; partialHours += day.remaining }
     totalHours += day.remaining
   }
 
-  return { emptyDays, partialDays, skippedDays, totalHours: Math.round(totalHours * 100) / 100 }
+  const round = (n: number) => Math.round(n * 100) / 100
+  return {
+    emptyDays, emptyHours: round(emptyHours),
+    partialDays, partialHours: round(partialHours),
+    skippedDays, totalHours: round(totalHours),
+  }
 }

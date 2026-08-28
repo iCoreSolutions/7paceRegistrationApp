@@ -153,12 +153,34 @@ describe('preview', () => {
 
     const summary = summarize(m, ['2026-06-22', '2026-06-23', '2026-06-24', '2026-06-25', '2026-06-26'])
 
-    expect(summary).toEqual({ emptyDays: 3, partialDays: 1, skippedDays: 1, totalHours: 29 })
+    // 22, 23 and 26 are the empty days (8h each = 24), 24 is the partial day (5h).
+    expect(summary).toEqual({
+      emptyDays: 3, emptyHours: 24, partialDays: 1, partialHours: 5, skippedDays: 1, totalHours: 29,
+    })
+  })
+
+  it('sums empty/partial hours from each day\'s own remaining, never count * dailyHours', () => {
+    // A day shortened by the pre-holiday rule (WorkSchedule) still classifies as Empty until
+    // something is logged against it, so its contribution must come from its own `remaining`
+    // rather than an assumed uniform daily target - otherwise the empty total overstates and
+    // the partial total can go negative.
+    const m = month([
+      { date: '2026-06-24', status: 'empty', remaining: 5 },
+      { date: '2026-06-25', status: 'partial', logged: 6, remaining: 2 },
+    ])
+
+    const summary = summarize(m, ['2026-06-22', '2026-06-23', '2026-06-24', '2026-06-25'])
+
+    expect(summary).toEqual({
+      emptyDays: 3, emptyHours: 21, partialDays: 1, partialHours: 2, skippedDays: 0, totalHours: 23,
+    })
   })
 
   it('leaves non-working days out of the summary entirely', () => {
     const summary = summarize(month(), ['2026-06-06', '2026-06-07'])
 
-    expect(summary).toEqual({ emptyDays: 0, partialDays: 0, skippedDays: 0, totalHours: 0 })
+    expect(summary).toEqual({
+      emptyDays: 0, emptyHours: 0, partialDays: 0, partialHours: 0, skippedDays: 0, totalHours: 0,
+    })
   })
 })
