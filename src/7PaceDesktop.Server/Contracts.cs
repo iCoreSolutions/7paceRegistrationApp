@@ -35,3 +35,19 @@ public sealed record MonthDto(
     double DailyHours,
     TotalsDto Totals,
     IReadOnlyList<DayDto> Days);
+
+public sealed record FillLineDto(int WorkItemId, double Hours);
+
+public sealed record RegisterRequestDto(
+    IReadOnlyList<string> Dates,
+    IReadOnlyList<FillLineDto> Lines,
+    bool Simulate);
+
+public sealed record DayResultDto(string Date, double Hours, string Status, string? Error);
+
+public sealed record RegisterResponseDto(
+    int PostedEntries,
+    int FailedEntries,
+    int SkippedDays,
+    double TotalHours,
+    IReadOnlyList<DayResultDto> Days);
