@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using PaceDesktop.Core.Models;
 using PaceDesktop.Core.Planning;
 using PaceDesktop.Core.Services;
@@ -65,7 +64,10 @@ public static class RegisterEndpoints
             var entries = FillPlanner.Plan(dates, plan, spec);
             var summary = FillPlanner.Summarize(dates, plan, spec);
 
-            var errors = new ConcurrentDictionary<DateOnly, string>();
+            // Per-entry outcome, indexed the same as `entries`. Each index is written by exactly
+            // one task below, so plain array writes need no locking. Null means that entry either
+            // posted successfully or was never attempted (simulate mode).
+            var entryErrors = new string?[entries.Count];
             var posted = 0;
             var failed = 0;
 
@@ -73,7 +75,7 @@ public static class RegisterEndpoints
             {
                 var client = clients.CreateClient();
                 using var gate = new SemaphoreSlim(MaxConcurrentSubmits);
-                await Task.WhenAll(entries.Select(async entry =>
+                await Task.WhenAll(entries.Select(async (entry, index) =>
                 {
                     await gate.WaitAsync(ct);
                     try
@@ -84,7 +86,9 @@ public static class RegisterEndpoints
                     catch (Exception ex)
                     {
                         Interlocked.Increment(ref failed);
-                        errors.TryAdd(entry.Date, ex.Message);
+                        // Name the failing work item so a "partial" day's Error is attributable
+                        // even though the DTO only carries one message per day.
+                        entryErrors[index] = $"Arbetsobjekt {entry.WorkItemId}: {ex.Message}";
                     }
                     finally
                     {
@@ -97,14 +101,25 @@ public static class RegisterEndpoints
                 posted = entries.Count;
             }
 
+            // Status reflects the actual per-entry outcomes for the day, not just whether any
+            // entry failed: a day with multiple work-item lines can have some post and some not,
+            // and reporting that as flatly "failed" would contradict the entry-level
+            // PostedEntries/FailedEntries counts above. Hours is always the planned total for the
+            // day, in both real and simulate runs, regardless of what actually posted.
             var days = entries
-                .GroupBy(e => e.Date)
+                .Select((entry, index) => (entry, error: entryErrors[index]))
+                .GroupBy(x => x.entry.Date)
                 .OrderBy(g => g.Key)
-                .Select(g => new DayResultDto(
-                    Date: g.Key.ToString("yyyy-MM-dd"),
-                    Hours: Math.Round(g.Sum(e => e.Hours), 2),
-                    Status: errors.ContainsKey(g.Key) ? "failed" : "ok",
-                    Error: errors.GetValueOrDefault(g.Key)))
+                .Select(g =>
+                {
+                    var dayFailed = g.Count(x => x.error is not null);
+                    var status = dayFailed == 0 ? "ok" : dayFailed == g.Count() ? "failed" : "partial";
+                    return new DayResultDto(
+                        Date: g.Key.ToString("yyyy-MM-dd"),
+                        Hours: Math.Round(g.Sum(x => x.entry.Hours), 2),
+                        Status: status,
+                        Error: g.Select(x => x.error).FirstOrDefault(e => e is not null));
+                })
                 .ToList();
 
             return Results.Ok(new RegisterResponseDto(

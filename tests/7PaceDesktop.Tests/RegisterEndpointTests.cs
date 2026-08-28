@@ -124,6 +124,29 @@ public class RegisterEndpointTests
     }
 
     [Fact]
+    public async Task Register_PartiallyFailingDay_ReportsPartialWithThePlannedHoursAndTheFailingWorkItem()
+    {
+        using var server = Configured();
+        server.Pace.SubmitThrows = entry => entry.WorkItemId == Support
+            ? new PaceApiException(500, "7Pace API error 500: boom")
+            : null;
+
+        var result = await (await server.Client.PostAsJsonAsync("/api/register",
+            Request([22], lines: [new FillLineDto(Sprint, 6), new FillLineDto(Support, 2)])))
+            .Content.ReadFromJsonAsync<RegisterResponseDto>();
+
+        // One line for the day posted, the other did not: the day itself is neither fully "ok"
+        // nor fully "failed", and Hours still reports the full planned total either way.
+        Assert.Equal(1, result!.PostedEntries);
+        Assert.Equal(1, result.FailedEntries);
+        var day = Assert.Single(result.Days);
+        Assert.Equal("partial", day.Status);
+        Assert.Equal(8, day.Hours);
+        Assert.Contains(Support.ToString(), day.Error);
+        Assert.Contains("500", day.Error);
+    }
+
+    [Fact]
     public async Task Register_RefetchesBeforePlanning()
     {
         using var server = Configured();

@@ -43,6 +43,13 @@ public sealed record RegisterRequestDto(
     IReadOnlyList<FillLineDto> Lines,
     bool Simulate);
 
+/// <summary>
+/// <paramref name="Status"/> is "ok" (every line for the day posted), "failed" (none did), or
+/// "partial" (some did and some did not — the day must not be treated as nothing landed).
+/// <paramref name="Hours"/> is always the planned hours for the day, in both real and simulate
+/// runs, regardless of what actually posted. <paramref name="Error"/> names the failing work
+/// item; if more than one line fails, only the first message is kept.
+/// </summary>
 public sealed record DayResultDto(string Date, double Hours, string Status, string? Error);
 
 public sealed record RegisterResponseDto(
