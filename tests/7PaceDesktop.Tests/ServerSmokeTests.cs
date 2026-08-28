@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PaceDesktop.Tests;
 
@@ -37,5 +39,20 @@ public class ServerSmokeTests
         using var bare = server.CreateBareClient();
 
         Assert.Equal(HttpStatusCode.OK, (await bare.GetAsync("/api/health")).StatusCode);
+    }
+
+    [Fact]
+    public void PortSetting_RoundTripsThroughConfiguration()
+    {
+        // Kestrel's real Listen() never binds a socket under WebApplicationFactory (it hosts the
+        // app in-memory via TestServer), so a real bound port cannot be observed here. This
+        // instead asserts the value Program.cs actually reads: a "Port" configuration key set
+        // the same way the real launcher sets it (a command-line-style setting), round-tripping
+        // through to builder.Configuration inside the running app.
+        using var server = new ServerFixture(settings: new Dictionary<string, string?> { ["Port"] = "5111" });
+
+        var configuration = server.Services.GetRequiredService<IConfiguration>();
+
+        Assert.Equal("5111", configuration["Port"]);
     }
 }

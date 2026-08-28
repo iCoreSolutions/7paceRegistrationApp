@@ -155,4 +155,84 @@ describe('MonthView', () => {
     expect(await screen.findByText(/kunde inte hämtas/i)).toBeInTheDocument()
     expect(screen.getAllByText('ej hämtad').length).toBeGreaterThan(0)
   })
+
+  it('selects a range by dragging across cells', async () => {
+    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    render(<MonthView />)
+    await screen.findAllByText('Juni 2026')
+
+    const from = screen.getByRole('button', { name: /2026-06-22/ })
+    const to = screen.getByRole('button', { name: /2026-06-24/ })
+    await userEvent.pointer([
+      { keys: '[MouseLeft>]', target: from },
+      { target: to },
+      { keys: '[/MouseLeft]' },
+    ])
+
+    expect(screen.getByRole('button', { name: /2026-06-23/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /2026-06-25/ })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('toggles a single day with ctrl-click without clearing the rest', async () => {
+    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    render(<MonthView />)
+    await screen.findAllByText('Juni 2026')
+
+    // A shared session is required here: the top-level userEvent.* calls each start their own
+    // fresh input-device state, so a Control key held via a bare `userEvent.keyboard('{Control>}')`
+    // would never reach a later independent `userEvent.click(...)` call.
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /2026-06-22/ }))
+    await user.keyboard('{Control>}')
+    await user.click(screen.getByRole('button', { name: /2026-06-25/ }))
+    await user.keyboard('{/Control}')
+
+    expect(screen.getByRole('button', { name: /2026-06-22/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /2026-06-25/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('selects a whole week from the gutter', async () => {
+    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    render(<MonthView />)
+    await screen.findAllByText('Juni 2026')
+
+    await userEvent.click(screen.getByRole('button', { name: /vecka 23/i }))
+
+    expect(screen.getByRole('button', { name: /2026-06-01/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /2026-06-07/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('selects every unfilled workday, then clears', async () => {
+    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    render(<MonthView />)
+    await screen.findAllByText('Juni 2026')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Alla tomma dagar' }))
+    expect(screen.getByRole('button', { name: /2026-06-01/ })).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Rensa markering' }))
+    expect(screen.getByRole('button', { name: /2026-06-01/ })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('toggles the focused day with the space key', async () => {
+    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    render(<MonthView />)
+    await screen.findAllByText('Juni 2026')
+
+    const cell = screen.getByRole('button', { name: /2026-06-22/ })
+    cell.focus()
+    await userEvent.keyboard(' ')
+
+    expect(cell).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('badges the planned top-up on selected days', async () => {
+    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    render(<MonthView />)
+    await screen.findAllByText('Juni 2026')
+
+    await userEvent.click(screen.getByRole('button', { name: /2026-06-22/ }))
+
+    expect(screen.getByText('+8 h')).toBeInTheDocument()
+  })
 })

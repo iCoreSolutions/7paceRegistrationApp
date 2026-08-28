@@ -60,7 +60,15 @@ public sealed class ServerFixture : IDisposable
     public SettingsStore Settings { get; }
     public WorkItemStore WorkItems { get; }
 
-    public ServerFixture()
+    /// <summary>The hosted app's own DI container, so tests can read back things like IConfiguration.</summary>
+    public IServiceProvider Services => _factory.Services;
+
+    /// <param name="settings">
+    /// Extra configuration key/value pairs applied via <c>UseSetting</c>, on top of the
+    /// per-test <c>DataDir</c> - e.g. the "Port" key a real launch would pass on the command
+    /// line (see ServerSmokeTests.PortSetting_RoundTripsThroughConfiguration).
+    /// </param>
+    public ServerFixture(IReadOnlyDictionary<string, string?>? settings = null)
     {
         DataDir = Path.Combine(Path.GetTempPath(), "7pace-server-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(DataDir);
@@ -70,6 +78,10 @@ public sealed class ServerFixture : IDisposable
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseSetting("DataDir", DataDir);
+            if (settings is not null)
+            {
+                foreach (var (key, value) in settings) builder.UseSetting(key, value);
+            }
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IPaceClientFactory>(Pace);

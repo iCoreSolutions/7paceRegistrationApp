@@ -9,7 +9,7 @@ export default defineConfig({
   server: {
     port: 5173,
     // In development the API lives on the dotnet server; run it with
-    // ASPNETCORE_URLS=http://127.0.0.1:5111 dotnet run --project src/7PaceDesktop.Server
+    // dotnet run --project src/7PaceDesktop.Server -- --Port=5111
     proxy: { '/api': 'http://127.0.0.1:5111' },
   },
   test: {

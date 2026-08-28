@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { api, ApiError } from '../api'
 import type { Month } from '../types'
-import { WEEKDAYS, addMonths, formatMonth, weekRows } from '../dates'
+import { WEEKDAYS, addMonths, datesBetween, formatMonth, weekRows } from '../dates'
 import { DayCell } from '../components/DayCell'
 import { Legend } from '../components/Legend'
 import { StatusBar } from '../components/StatusBar'
 import { ChevronLeft, ChevronRight, Gear, Moon, Refresh, Warning } from '../components/Icons'
+import {
+  emptyWorkdays, monthWorkdays, plannedFor, selectionReducer, weekDates,
+} from '../selection'
 
 const today = new Date()
 
@@ -26,6 +29,59 @@ export function MonthView() {
   }, [period])
 
   useEffect(() => { void load() }, [load])
+
+  const [selection, dispatch] = useReducer(selectionReducer, { selected: [], anchor: null })
+  const dragging = useRef(false)
+
+  // The selection resets when the period changes: dates outside the grid cannot be registered.
+  useEffect(() => { dispatch({ type: 'clear' }) }, [period])
+
+  useEffect(() => {
+    const stop = () => {
+      dragging.current = false
+      dispatch({ type: 'dragEnd' })
+    }
+    window.addEventListener('pointerup', stop)
+    return () => window.removeEventListener('pointerup', stop)
+  }, [])
+
+  const onCellPointerDown = (date: string) => (event: React.PointerEvent) => {
+    event.preventDefault()
+    if (event.ctrlKey || event.metaKey) {
+      dispatch({ type: 'toggle', date })
+      return
+    }
+    dragging.current = true
+    dispatch({ type: 'dragStart', date })
+  }
+
+  const onCellPointerEnter = (date: string) => () => {
+    if (dragging.current) dispatch({ type: 'dragTo', date })
+  }
+
+  const onCellKeyDown = (date: string) => (event: React.KeyboardEvent) => {
+    if (event.key === ' ' || event.key === 'Enter') {
+      event.preventDefault()
+      dispatch({ type: 'toggle', date })
+      return
+    }
+    if (event.key === 'a' && (event.ctrlKey || event.metaKey) && month) {
+      event.preventDefault()
+      dispatch({ type: 'set', dates: monthWorkdays(month) })
+      return
+    }
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key]
+    if (step === undefined || !month) return
+    event.preventDefault()
+    const index = month.days.findIndex((d) => d.date === date) + step
+    const next = month.days[index]
+    if (!next) return
+    const target = document.querySelector<HTMLButtonElement>(`[data-date="${next.date}"]`)
+    target?.focus()
+    if (event.shiftKey && selection.selected.length > 0) {
+      dispatch({ type: 'set', dates: datesBetween(selection.selected[0], next.date) })
+    }
+  }
 
   // The header shows what is actually on screen: `month`'s own year/month once loaded,
   // falling back to `period` only before the first load resolves (or after a failed one).
@@ -80,6 +136,17 @@ export function MonthView() {
           >
             Idag
           </button>
+          <span className="h-5.5 w-px" style={{ background: 'var(--border)' }} />
+          <button
+            type="button" className={button} style={buttonStyle}
+            disabled={!month}
+            onClick={() => month && dispatch({ type: 'set', dates: emptyWorkdays(month) })}
+          >
+            Alla tomma dagar
+          </button>
+          <button type="button" className={button} style={buttonStyle} onClick={() => dispatch({ type: 'clear' })}>
+            Rensa markering
+          </button>
         </div>
         <Legend />
       </div>
@@ -131,6 +198,7 @@ export function MonthView() {
                     key={row[0].date}
                     type="button"
                     aria-label={`Vecka ${row[0].isoWeek}`}
+                    onClick={() => dispatch({ type: 'set', dates: weekDates(month, row[0].isoWeek) })}
                     className="flex items-center justify-center rounded-md text-xs font-semibold"
                     style={{ color: 'var(--subtle)' }}
                   >
@@ -143,8 +211,17 @@ export function MonthView() {
                 className="grid min-w-0 flex-1 grid-cols-7 gap-1.5"
                 style={{ gridTemplateRows: `repeat(${weekRows(month.days).length}, minmax(0, 1fr))` }}
               >
-                {month.days.map((day) => (
-                  <DayCell key={day.date} day={day} plannedHours={0} selected={false} />
+                {month.days.map((day, index) => (
+                  <DayCell
+                    key={day.date}
+                    day={day}
+                    plannedHours={selection.selected.includes(day.date) ? plannedFor(month, day.date) : 0}
+                    selected={selection.selected.includes(day.date)}
+                    tabIndex={index === 0 ? 0 : -1}
+                    onPointerDown={onCellPointerDown(day.date)}
+                    onPointerEnter={onCellPointerEnter(day.date)}
+                    onKeyDown={onCellKeyDown(day.date)}
+                  />
                 ))}
               </div>
             </div>

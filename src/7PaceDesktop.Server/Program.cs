@@ -7,8 +7,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Bind loopback-only by IP literal, never 0.0.0.0 and never a hostname (WebApplicationFactory
 // ignores this in tests - it hosts the app in-memory via TestServer instead of real Kestrel).
-// The port is ephemeral here; Task 15's single-file launcher decides how a real run picks one.
-builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+// Loopback-only is the security property and is not configurable. The PORT is, so the Vite dev
+// proxy can target a known one; 0 asks the OS for a free port, which is what a real run uses.
+var port = int.TryParse(builder.Configuration["Port"], out var configured) ? configured : 0;
+builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
 
 // Tests point this at a temp directory; production uses %AppData%\7PaceDesktop.
 var dataDir = builder.Configuration["DataDir"] ?? AppPaths.DefaultBaseDir;
