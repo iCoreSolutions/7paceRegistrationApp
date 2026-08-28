@@ -6,3 +6,32 @@ public sealed record ConfigDto(bool Configured, string Organization, double Dail
 public sealed record ConfigUpdateDto(string Organization, string? Token, double DailyHours, string Theme);
 
 public sealed record WorkItemDto(int Id, string Name, bool IsFavorite);
+
+public sealed record ExistingWorkLogDto(string Id, double Hours, int WorkItemId, string? WorkItemName, string? Comment);
+
+public sealed record DayDto(
+    string Date,
+    double Expected,
+    double Logged,
+    double Remaining,
+    string Status,
+    bool HitZeroFloor,
+    int IsoWeek,
+    bool InMonth,
+    string? HolidayName,
+    IReadOnlyList<ExistingWorkLogDto> Existing);
+
+public sealed record TotalsDto(double Expected, double Logged, double Missing);
+
+public sealed record MonthDto(
+    int Year,
+    int Month,
+    string From,
+    string To,
+    string LoadState,
+    string? Error,
+    string? HolidayWarning,
+    DateTimeOffset FetchedAt,
+    double DailyHours,
+    TotalsDto Totals,
+    IReadOnlyList<DayDto> Days);

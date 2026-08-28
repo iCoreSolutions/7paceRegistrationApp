@@ -13,6 +13,7 @@ builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0
 // Tests point this at a temp directory; production uses %AppData%\7PaceDesktop.
 var dataDir = builder.Configuration["DataDir"] ?? AppPaths.DefaultBaseDir;
 
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(new HttpClient());
 builder.Services.AddSingleton(new SettingsStore(dataDir));
 builder.Services.AddSingleton(new WorkItemStore(dataDir));

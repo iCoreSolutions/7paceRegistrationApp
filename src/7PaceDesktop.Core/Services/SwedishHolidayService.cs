@@ -5,7 +5,10 @@ using PaceDesktop.Core.Storage;
 
 namespace PaceDesktop.Core.Services;
 
-public sealed record HolidayLookup(IReadOnlySet<DateOnly> Dates, bool IsIncomplete);
+public sealed record HolidayLookup(
+    IReadOnlySet<DateOnly> Dates,
+    bool IsIncomplete,
+    IReadOnlyDictionary<DateOnly, string>? Names = null);
 
 public sealed class SwedishHolidayService(HttpClient http, SettingsStore store)
 {
@@ -17,6 +20,7 @@ public sealed class SwedishHolidayService(HttpClient http, SettingsStore store)
     {
         var settings = store.Load();
         var dates = new HashSet<DateOnly>();
+        var names = new Dictionary<DateOnly, string>();
         var incomplete = false;
         var cacheChanged = false;
 
@@ -24,7 +28,7 @@ public sealed class SwedishHolidayService(HttpClient http, SettingsStore store)
         {
             if (settings.HolidayCache.TryGetValue(year, out var cached))
             {
-                foreach (var h in cached) dates.Add(h.Date);
+                foreach (var h in cached) { dates.Add(h.Date); names[h.Date] = h.Name; }
                 continue;
             }
             try
@@ -34,7 +38,7 @@ public sealed class SwedishHolidayService(HttpClient http, SettingsStore store)
                 var holidays = fetched.Select(n => new Holiday(n.Date, n.LocalName)).ToList();
                 settings.HolidayCache[year] = holidays;
                 cacheChanged = true;
-                foreach (var h in holidays) dates.Add(h.Date);
+                foreach (var h in holidays) { dates.Add(h.Date); names[h.Date] = h.Name; }
             }
             catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
             {
@@ -43,6 +47,6 @@ public sealed class SwedishHolidayService(HttpClient http, SettingsStore store)
         }
 
         if (cacheChanged) store.Save(settings);
-        return new HolidayLookup(dates, incomplete);
+        return new HolidayLookup(dates, incomplete, names);
     }
 }
