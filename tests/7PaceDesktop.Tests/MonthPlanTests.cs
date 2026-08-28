@@ -59,6 +59,22 @@ public class MonthPlanTests
     }
 
     [Fact]
+    public void Build_ClassifiesWithinEpsilonOfTargetAsComplete()
+    {
+        var (from, to) = CalendarGrid.RangeFor(2026, 6);
+        var halfEpsilon = MonthPlan.Epsilon / 2;
+
+        var justUnder = MonthPlan.Build(from, to, Plain,
+            [new ExistingWorkLog("under", new DateOnly(2026, 6, 3), 8 - halfEpsilon, 42, null)]);
+        var justOver = MonthPlan.Build(from, to, Plain,
+            [new ExistingWorkLog("over", new DateOnly(2026, 6, 4), 8 + halfEpsilon, 42, null)]);
+
+        // Within Epsilon of the 8h target on either side still reads Complete, not Partial/Over.
+        Assert.Equal(DayStatus.Complete, justUnder.Day(new DateOnly(2026, 6, 3))!.Status);
+        Assert.Equal(DayStatus.Complete, justOver.Day(new DateOnly(2026, 6, 4))!.Status);
+    }
+
+    [Fact]
     public void Build_SumsAndKeepsTheDaysExistingWorklogs()
     {
         var (from, to) = CalendarGrid.RangeFor(2026, 6);
@@ -100,7 +116,7 @@ public class MonthPlanTests
     }
 
     [Fact]
-    public void TotalsForMonth_IgnoresAdjacentMonthDaysAndNonWorkingDays()
+    public void TotalsForMonth_IgnoresAdjacentMonthDays()
     {
         var schedule = new WorkSchedule(8, new HashSet<DateOnly>());
         var (from, to) = CalendarGrid.RangeFor(2026, 8);   // grid starts 2026-07-27
@@ -116,6 +132,26 @@ public class MonthPlanTests
         Assert.Equal(168, totals.Expected);
         Assert.Equal(6, totals.Logged);
         Assert.Equal(162, totals.Missing);
+    }
+
+    [Fact]
+    public void TotalsForMonth_IncludesLoggedHoursOnNonWorkingDays()
+    {
+        // June 19, 2026 is a holiday; June 6 is a Saturday. Both are inside the target month.
+        var schedule = new WorkSchedule(8, new HashSet<DateOnly> { new(2026, 6, 19) });
+        var (from, to) = CalendarGrid.RangeFor(2026, 6);
+        var logs = new List<ExistingWorkLog>
+        {
+            new("saturday", new DateOnly(2026, 6, 6), 4, 1, null),
+            new("holiday", new DateOnly(2026, 6, 19), 3, 1, null)
+        };
+
+        var totals = MonthPlan.Build(from, to, schedule, logs).TotalsForMonth(2026, 6);
+
+        // 7Pace's own month total includes time logged outside the schedule, so ours must too:
+        // NonWorking days must not be dropped from Logged, even though Expected/Missing are
+        // unaffected (a NonWorking day's Expected and Remaining are already 0).
+        Assert.Equal(7, totals.Logged);
     }
 
     [Fact]

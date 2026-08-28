@@ -85,16 +85,20 @@ public sealed class MonthPlan
         return DayStatus.Partial;
     }
 
-    /// <summary>Totals for one calendar month, excluding the grid's neighbouring-month days.</summary>
+    /// <summary>
+    /// Totals for one calendar month, excluding the grid's neighbouring-month days. Hours logged
+    /// on a NonWorking day (a weekend or holiday) still count towards Logged: 7Pace's own totals
+    /// include time logged outside the schedule, so ours must match. Only Unknown days are
+    /// excluded from Missing, since a day whose worklogs failed to fetch cannot be reported as
+    /// missing without risking a double-log.
+    /// </summary>
     public PlanTotals TotalsForMonth(int year, int month)
     {
-        var days = Days
-            .Where(d => d.Date.Year == year && d.Date.Month == month && d.Status != DayStatus.NonWorking)
-            .ToList();
+        var monthDays = Days.Where(d => d.Date.Year == year && d.Date.Month == month).ToList();
 
         return new PlanTotals(
-            days.Sum(d => d.Expected),
-            days.Sum(d => d.Logged),
-            days.Where(d => d.Status != DayStatus.Unknown).Sum(d => d.Remaining));
+            monthDays.Sum(d => d.Expected),
+            monthDays.Sum(d => d.Logged),
+            monthDays.Where(d => d.Status != DayStatus.Unknown).Sum(d => d.Remaining));
     }
 }
