@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { api, ApiError } from '../api'
-import type { Month } from '../types'
+import type { Month, WorkItem } from '../types'
 import { WEEKDAYS, addMonths, datesBetween, formatMonth, weekRows } from '../dates'
 import { DayCell } from '../components/DayCell'
 import { Legend } from '../components/Legend'
@@ -9,6 +9,7 @@ import { ChevronLeft, ChevronRight, Gear, Moon, Refresh, Warning } from '../comp
 import {
   emptyWorkdays, monthWorkdays, plannedFor, selectionReducer, weekDates,
 } from '../selection'
+import { SelectionPanel } from './SelectionPanel'
 
 const today = new Date()
 
@@ -16,6 +17,7 @@ export function MonthView() {
   const [period, setPeriod] = useState({ year: today.getFullYear(), month: today.getMonth() + 1 })
   const [month, setMonth] = useState<Month | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [workItems, setWorkItems] = useState<WorkItem[]>([])
 
   const load = useCallback(async () => {
     try {
@@ -29,6 +31,7 @@ export function MonthView() {
   }, [period])
 
   useEffect(() => { void load() }, [load])
+  useEffect(() => { void api.workItems().then(setWorkItems).catch(() => setWorkItems([])) }, [])
 
   const [selection, dispatch] = useReducer(selectionReducer, { selected: [], anchor: null })
   const dragging = useRef(false)
@@ -230,6 +233,16 @@ export function MonthView() {
               </div>
             </div>
           </div>
+        )}
+
+        {month && (
+          <SelectionPanel
+            month={month}
+            workItems={workItems}
+            selected={selection.selected}
+            onRegistered={() => void load()}
+            onClear={() => dispatch({ type: 'clear' })}
+          />
         )}
       </div>
 
