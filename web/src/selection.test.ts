@@ -5,9 +5,18 @@ import {
 import type { Day, DayStatus, Month } from './types'
 import { datesBetween } from './dates'
 
+// The grid starts Monday 2026-06-01, which is ISO week 23, so the week number follows the
+// date's offset from that Monday. Deriving it from the day-of-month instead would give
+// 2026-07-01..05 the same week 23 as 2026-06-01..07, and weekDates would return both runs.
+const GRID_START = Date.UTC(2026, 5, 1)
+const isoWeekFor = (date: string) => {
+  const utc = Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)))
+  return 23 + Math.floor((utc - GRID_START) / 604800000)
+}
+
 const day = (date: string, over: Partial<Day> = {}): Day => ({
   date, expected: 8, logged: 0, remaining: 8, status: 'empty', hitZeroFloor: false,
-  isoWeek: Number(date.slice(8, 10)) <= 7 ? 23 : 24, inMonth: date.startsWith('2026-06'),
+  isoWeek: isoWeekFor(date), inMonth: date.startsWith('2026-06'),
   holidayName: null, existing: [], ...over,
 })
 
@@ -111,7 +120,7 @@ describe('bulk selectors', () => {
   it('selects every workday of the month', () => {
     const dates = monthWorkdays(month())
 
-    expect(dates).toHaveLength(21)               // June 2026 weekdays
+    expect(dates).toHaveLength(22)               // June 2026 weekdays: it starts Monday and ends Tuesday
     expect(dates).not.toContain('2026-06-07')
   })
 })
