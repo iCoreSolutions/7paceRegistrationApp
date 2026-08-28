@@ -1,7 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace PaceDesktop.Tests;
 
@@ -51,8 +49,6 @@ public class ServerSmokeTests
         // through to builder.Configuration inside the running app.
         using var server = new ServerFixture(settings: new Dictionary<string, string?> { ["Port"] = "5111" });
 
-        var configuration = server.Services.GetRequiredService<IConfiguration>();
-
-        Assert.Equal("5111", configuration["Port"]);
+        Assert.Equal("5111", server.Configuration["Port"]);
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaceDesktop.Core.Models;
 using PaceDesktop.Core.Services;
@@ -60,8 +61,8 @@ public sealed class ServerFixture : IDisposable
     public SettingsStore Settings { get; }
     public WorkItemStore WorkItems { get; }
 
-    /// <summary>The hosted app's own DI container, so tests can read back things like IConfiguration.</summary>
-    public IServiceProvider Services => _factory.Services;
+    /// <summary>The hosted app's own configuration, so tests can read back things like "Port".</summary>
+    public IConfiguration Configuration { get; private set; } = null!;
 
     /// <param name="settings">
     /// Extra configuration key/value pairs applied via <c>UseSetting</c>, on top of the
@@ -91,6 +92,7 @@ public sealed class ServerFixture : IDisposable
 
         Client = _factory.CreateClient();
         Client.DefaultRequestHeaders.Add(ClientHeaderFilter.HeaderName, "1");
+        Configuration = _factory.Services.GetRequiredService<IConfiguration>();
     }
 
     /// <summary>A client without the anti-CSRF header, to prove mutating endpoints reject it.</summary>

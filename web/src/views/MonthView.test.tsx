@@ -173,6 +173,30 @@ describe('MonthView', () => {
     expect(screen.getByRole('button', { name: /2026-06-25/ })).toHaveAttribute('aria-pressed', 'false')
   })
 
+  it('leaves a built-up selection intact when a non-primary button presses a cell', async () => {
+    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    render(<MonthView />)
+    await screen.findAllByText('Juni 2026')
+
+    const from = screen.getByRole('button', { name: /2026-06-22/ })
+    const to = screen.getByRole('button', { name: /2026-06-24/ })
+    await userEvent.pointer([
+      { keys: '[MouseLeft>]', target: from },
+      { target: to },
+      { keys: '[/MouseLeft]' },
+    ])
+    expect(screen.getByRole('button', { name: /2026-06-22/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /2026-06-24/ })).toHaveAttribute('aria-pressed', 'true')
+
+    // A stray right-click (e.g. reaching for a future context menu) must not collapse the
+    // multi-day selection built up above down to just the clicked cell.
+    await userEvent.pointer([{ keys: '[MouseRight]', target: to }])
+
+    expect(screen.getByRole('button', { name: /2026-06-22/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /2026-06-23/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /2026-06-24/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('toggles a single day with ctrl-click without clearing the rest', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
     render(<MonthView />)
@@ -200,6 +224,14 @@ describe('MonthView', () => {
 
     expect(screen.getByRole('button', { name: /2026-06-01/ })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: /2026-06-07/ })).toHaveAttribute('aria-pressed', 'true')
+
+    // Keyboard, not just mouse: a focused native <button> triggers a click on Enter via the
+    // browser's own semantics, which is why this button needs no bespoke keydown handler.
+    screen.getByRole('button', { name: /vecka 24/i }).focus()
+    await userEvent.keyboard('{Enter}')
+
+    expect(screen.getByRole('button', { name: /2026-06-08/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /2026-06-14/ })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('selects every unfilled workday, then clears', async () => {

@@ -46,6 +46,10 @@ export function MonthView() {
   }, [])
 
   const onCellPointerDown = (date: string) => (event: React.PointerEvent) => {
+    // Only the primary (left) button starts or modifies a selection. A stray right- or
+    // middle-click (e.g. reaching for a future context menu) must not collapse a
+    // carefully built multi-day selection down to the one cell it landed on.
+    if (event.button !== 0) return
     event.preventDefault()
     if (event.ctrlKey || event.metaKey) {
       dispatch({ type: 'toggle', date })
