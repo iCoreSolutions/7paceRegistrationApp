@@ -37,7 +37,6 @@ const panel = (over: Partial<Parameters<typeof SelectionPanel>[0]> = {}) =>
       workItems={workItems}
       selected={['2026-06-22', '2026-06-23']}
       onRegistered={vi.fn()}
-      onClear={vi.fn()}
       {...over}
     />,
   )
@@ -134,8 +133,9 @@ describe('SelectionPanel', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Registrera/ }))
 
-    expect(await screen.findByText(/2026-06-23/)).toBeInTheDocument()
-    expect(screen.getByText(/500/)).toBeInTheDocument()
+    // The bare date also appears in the panel header's date range, so match the failure row's
+    // own "{date}: {error}" text rather than the date alone.
+    expect(await screen.findByText(/2026-06-23: .*500/)).toBeInTheDocument()
   })
 
   it('says nothing was registered when the server refuses on a stale read', async () => {
@@ -152,7 +152,7 @@ describe('SelectionPanel', () => {
     panel({ month: month('failed') })
 
     expect(screen.getByRole('button', { name: /Registrera/ })).toBeDisabled()
-    expect(screen.getByText(/kunde inte hämtas/i)).toBeInTheDocument()
+    expect(screen.getByText(/Registrering blockerad/i)).toBeInTheDocument()
     expect(screen.getByText('— h')).toBeInTheDocument()
   })
 

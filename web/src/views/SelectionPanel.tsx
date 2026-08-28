@@ -10,12 +10,11 @@ interface Props {
   workItems: WorkItem[]
   selected: string[]
   onRegistered: (response: RegisterResponse) => void
-  onClear: () => void
 }
 
 const EPSILON = 0.001
 
-export function SelectionPanel({ month, workItems, selected, onRegistered, onClear }: Props) {
+export function SelectionPanel({ month, workItems, selected, onRegistered }: Props) {
   const favourite = workItems.find((w) => w.isFavorite) ?? workItems[0]
   const [lines, setLines] = useState<FillLine[]>([])
   const [simulate, setSimulate] = useState(false)
@@ -86,7 +85,7 @@ export function SelectionPanel({ month, workItems, selected, onRegistered, onCle
         >
           <span className="shrink-0" style={{ color: 'var(--danger)' }}><Warning /></span>
           <div className="flex flex-col gap-1">
-            <span className="text-[13px] font-semibold">Registrerad tid kunde inte hämtas</span>
+            <span className="text-[13px] font-semibold">Registrering blockerad: kan dubbelbokföra</span>
             <span className="text-xs leading-relaxed" style={{ color: 'var(--subtle)' }}>
               Appen vet inte vad som redan är loggat och skulle riskera att dubbelregistrera.
               Uppdatera för att försöka igen.
@@ -257,11 +256,6 @@ export function SelectionPanel({ month, workItems, selected, onRegistered, onCle
         <span className="text-center text-[11px]" style={{ color: 'var(--subtle)' }}>
           {blocked ? 'Blockerad tills tiden är hämtad' : 'Kalendern hämtas om från 7Pace efteråt'}
         </span>
-        {selected.length > 0 && (
-          <button type="button" className="text-[11px] underline" style={{ color: 'var(--subtle)' }} onClick={onClear}>
-            Rensa markering
-          </button>
-        )}
       </div>
     </aside>
   )

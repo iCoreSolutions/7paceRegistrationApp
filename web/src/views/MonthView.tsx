@@ -241,7 +241,6 @@ export function MonthView() {
             workItems={workItems}
             selected={selection.selected}
             onRegistered={() => void load()}
-            onClear={() => dispatch({ type: 'clear' })}
           />
         )}
       </div>
