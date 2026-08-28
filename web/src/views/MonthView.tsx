@@ -16,8 +16,19 @@ export function MonthView() {
 
   const load = useCallback(async () => {
     try {
-      setMonth(await api.month(period.year, period.month))
+      const result = await api.month(period.year, period.month)
+      setMonth(result)
       setLoadError(null)
+      // Keep `period` converged on what actually loaded. In production this is always a
+      // no-op (the server echoes back exactly the year/month it was asked for), so this
+      // never fires a second request in real use; it only matters when a load resolves
+      // to a different period than requested. The functional-updater form returns the
+      // very same object when nothing changed, so React bails out instead of re-rendering.
+      setPeriod((current) =>
+        current.year === result.year && current.month === result.month
+          ? current
+          : { year: result.year, month: result.month },
+      )
     } catch (error) {
       setMonth(null)
       setLoadError(error instanceof ApiError ? error.message : 'Okänt fel.')
@@ -26,10 +37,11 @@ export function MonthView() {
 
   useEffect(() => { void load() }, [load])
 
-  // The header always shows what is actually on screen. Falling back to `period` only
-  // matters before the first load resolves (or after a failed one) — once `month` is
-  // loaded, its own year/month is the single source of truth for both the title and
-  // for where "next"/"previous" navigate from, so they can never drift apart.
+  // The header shows what is actually on screen. Falling back to `period` only matters
+  // before the first load resolves (or after a failed one); once `month` is loaded its
+  // own year/month always agrees with `period` (see the sync in `load` above), so this
+  // is purely a display convenience — navigation below reads `period` directly so that
+  // rapid clicks accumulate correctly instead of being gated by fetch latency.
   const displayed = month ? { year: month.year, month: month.month } : period
 
   const button = 'flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px]'
@@ -62,14 +74,14 @@ export function MonthView() {
         <div className="flex items-center gap-2.5">
           <button
             type="button" aria-label="Föregående månad" className={button} style={buttonStyle}
-            onClick={() => setPeriod(addMonths(displayed.year, displayed.month, -1))}
+            onClick={() => setPeriod((p) => addMonths(p.year, p.month, -1))}
           >
             <ChevronLeft />
           </button>
           <span className="min-w-[118px] text-lg font-semibold">{formatMonth(displayed.year, displayed.month)}</span>
           <button
             type="button" aria-label="Nästa månad" className={button} style={buttonStyle}
-            onClick={() => setPeriod(addMonths(displayed.year, displayed.month, 1))}
+            onClick={() => setPeriod((p) => addMonths(p.year, p.month, 1))}
           >
             <ChevronRight />
           </button>
