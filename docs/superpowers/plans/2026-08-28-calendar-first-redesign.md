@@ -3895,7 +3895,7 @@ git commit -m "feat: month calendar rendering with day states and totals"
   - `selectionReducer(state, action) -> SelectionState`
   - `emptyWorkdays(month) -> string[]`, `weekDates(month, isoWeek) -> string[]`, `monthWorkdays(month) -> string[]`
   - `plannedFor(month, date) -> number`, `summarize(month, selected) -> FillSummaryView`
-  - `interface FillSummaryView { emptyDays: number; partialDays: number; skippedDays: number; totalHours: number }`
+  - `interface FillSummaryView { emptyDays: number; emptyHours: number; partialDays: number; partialHours: number; skippedDays: number; totalHours: number }`
 
 `plannedFor` and `summarize` use only `max(0, expected - logged)`, which the server has already
 computed as `day.remaining`. The split and rounding rules stay in `FillPlanner`.
@@ -4177,7 +4177,12 @@ export function plannedFor(month: Month, date: string): number {
 
 export interface FillSummaryView {
   emptyDays: number
+  // Hours are accumulated from day.remaining, never derived as count * dailyHours: a day before
+  // a holiday is shortened by three hours and still classifies as Empty, so multiplying would
+  // overstate the empty total and drive the partial total negative.
+  emptyHours: number
   partialDays: number
+  partialHours: number
   skippedDays: number
   totalHours: number
 }
@@ -4188,6 +4193,9 @@ export function summarize(month: Month, selected: string[]): FillSummaryView {
   let skippedDays = 0
   let totalHours = 0
 
+  let emptyHours = 0
+  let partialHours = 0
+
   for (const date of selected) {
     const day = month.days.find((d) => d.date === date)
     if (!day || day.status === 'nonWorking' || day.status === 'unknown') continue
@@ -4196,12 +4204,17 @@ export function summarize(month: Month, selected: string[]): FillSummaryView {
       skippedDays += 1
       continue
     }
-    if (day.status === 'empty') emptyDays += 1
-    else partialDays += 1
+    if (day.status === 'empty') { emptyDays += 1; emptyHours += day.remaining }
+    else { partialDays += 1; partialHours += day.remaining }
     totalHours += day.remaining
   }
 
-  return { emptyDays, partialDays, skippedDays, totalHours: Math.round(totalHours * 100) / 100 }
+  const round = (n: number) => Math.round(n * 100) / 100
+  return {
+    emptyDays, emptyHours: round(emptyHours),
+    partialDays, partialHours: round(partialHours),
+    skippedDays, totalHours: round(totalHours),
+  }
 }
 ```
 
@@ -4797,13 +4810,13 @@ export function SelectionPanel({ month, workItems, selected, onRegistered }: Pro
             {summary.emptyDays > 0 && (
               <Row
                 label={`${summary.emptyDays} ${summary.emptyDays === 1 ? 'tom dag' : 'tomma dagar'}`}
-                value={`${hours(summary.emptyDays * month.dailyHours)} h`}
+                value={`${hours(summary.emptyHours)} h`}
               />
             )}
             {summary.partialDays > 0 && (
               <Row
                 label={`${summary.partialDays} delvis ${summary.partialDays === 1 ? 'dag' : 'dagar'}`}
-                value={`${hours(summary.totalHours - summary.emptyDays * month.dailyHours)} h`}
+                value={`${hours(summary.partialHours)} h`}
                 color="var(--warn)"
               />
             )}
