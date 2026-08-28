@@ -17,9 +17,11 @@ export function SettingsDialog({ config, onSaved, onClose }: Props) {
   const [token, setToken] = useState('')
   const [dailyHours, setDailyHours] = useState(config.dailyHours)
   const [theme, setTheme] = useState<Theme>(config.theme)
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function save() {
+    setBusy(true)
     try {
       // An empty token field means "keep the stored one" - the UI can never read it back.
       await api.saveConfig({
@@ -32,6 +34,8 @@ export function SettingsDialog({ config, onSaved, onClose }: Props) {
       onClose()
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Okänt fel.')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -39,7 +43,7 @@ export function SettingsDialog({ config, onSaved, onClose }: Props) {
   const fieldStyle = { borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }
 
   return (
-    <Dialog title="Inställningar" onClose={onClose}>
+    <Dialog title="Inställningar" onClose={onClose} busy={busy}>
       <label className="flex flex-col gap-1">
         <span className="text-[13px] font-medium">Organisation</span>
         <input className={field} style={fieldStyle} value={organization} onChange={(e) => setOrganization(e.target.value)} />
@@ -75,11 +79,11 @@ export function SettingsDialog({ config, onSaved, onClose }: Props) {
       {error && <div className="text-xs" style={{ color: 'var(--danger)' }}>{error}</div>}
 
       <button
-        type="button" onClick={() => void save()}
-        className="h-9 rounded-md border text-sm font-semibold"
+        type="button" disabled={busy} onClick={() => void save()}
+        className="h-9 rounded-md border text-sm font-semibold disabled:opacity-50"
         style={{ borderColor: 'var(--accent)', background: 'var(--accent)', color: 'var(--accent-fg)' }}
       >
-        Spara
+        {busy ? 'Sparar…' : 'Spara'}
       </button>
     </Dialog>
   )

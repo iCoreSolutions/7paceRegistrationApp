@@ -14,6 +14,7 @@ export function WorkItemsDialog({ items, onSaved, onClose }: Props) {
   const [draft, setDraft] = useState<WorkItem[]>(items)
   const [newId, setNewId] = useState('')
   const [newName, setNewName] = useState('')
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const setFavourite = (id: number) =>
@@ -42,12 +43,15 @@ export function WorkItemsDialog({ items, onSaved, onClose }: Props) {
   }
 
   async function save() {
+    setBusy(true)
     try {
       await api.saveWorkItems(draft)
       onSaved(draft)
       onClose()
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Okänt fel.')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -55,7 +59,7 @@ export function WorkItemsDialog({ items, onSaved, onClose }: Props) {
   const fieldStyle = { borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }
 
   return (
-    <Dialog title="Work items" onClose={onClose}>
+    <Dialog title="Work items" onClose={onClose} busy={busy}>
       <div className="flex flex-col gap-1.5">
         {draft.map((item) => (
           <div key={item.id} className="flex items-center gap-2 rounded-md border p-2" style={fieldStyle}>
@@ -105,11 +109,11 @@ export function WorkItemsDialog({ items, onSaved, onClose }: Props) {
       {error && <div className="text-xs" style={{ color: 'var(--danger)' }}>{error}</div>}
 
       <button
-        type="button" onClick={() => void save()}
-        className="h-9 rounded-md border text-sm font-semibold"
+        type="button" disabled={busy} onClick={() => void save()}
+        className="h-9 rounded-md border text-sm font-semibold disabled:opacity-50"
         style={{ borderColor: 'var(--accent)', background: 'var(--accent)', color: 'var(--accent-fg)' }}
       >
-        Spara
+        {busy ? 'Sparar…' : 'Spara'}
       </button>
     </Dialog>
   )

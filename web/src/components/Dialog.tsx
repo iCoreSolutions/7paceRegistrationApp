@@ -4,8 +4,16 @@ import { Close } from './Icons'
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]),' +
   ' textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
-export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Dialog(
+  { title, onClose, busy = false, children }:
+  { title: string; onClose: () => void; busy?: boolean; children: ReactNode },
+) {
   const panelRef = useRef<HTMLDivElement>(null)
+  // Read via a ref inside the keydown handler rather than in the effect's dependency array:
+  // re-running the effect on every busy flip would re-run the initial-focus logic and reset
+  // "previously focused" bookkeeping mid-dialog, which is not what a busy flip should do.
+  const busyRef = useRef(busy)
+  busyRef.current = busy
 
   // Escape closes the dialog, and Tab/Shift+Tab is trapped inside it so a keyboard user
   // can never tab out into the (still-mounted, but hidden-behind-the-overlay) page.
@@ -17,6 +25,10 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        // A save in flight must not be interrupted: a failure afterwards would be silently
+        // swallowed with the dialog already gone, and a success would land after the user
+        // believed they had cancelled. See Dialog's `busy` prop.
+        if (busyRef.current) return
         event.preventDefault()
         onClose()
         return
@@ -53,8 +65,8 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">{title}</h2>
           <button
-            type="button" aria-label="Stäng" onClick={onClose}
-            className="flex size-7 items-center justify-center rounded-md"
+            type="button" aria-label="Stäng" onClick={onClose} disabled={busy}
+            className="flex size-7 items-center justify-center rounded-md disabled:opacity-40"
             style={{ color: 'var(--subtle)' }}
           >
             <Close />

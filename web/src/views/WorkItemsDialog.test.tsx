@@ -10,7 +10,15 @@ vi.mock('../api', () => ({
     constructor(public status: number, message: string) { super(message) }
   },
 }))
-const { api } = await import('../api')
+const { api, ApiError } = await import('../api')
+
+/** A promise this test resolves/rejects by hand, so a save can be held open across assertions. */
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
+  return { promise, resolve, reject }
+}
 
 const items: WorkItem[] = [
   { id: 12345, name: 'Sprintarbete', isFavorite: true },
@@ -77,5 +85,28 @@ describe('WorkItemsDialog', () => {
     await userEvent.keyboard('{Escape}')
 
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('keeps the dialog open while a save is pending, then shows the error on failure', async () => {
+    const onClose = vi.fn()
+    const pending = deferred<void>()
+    vi.mocked(api.saveWorkItems).mockReturnValue(pending.promise)
+    render(<WorkItemsDialog items={items} onSaved={vi.fn()} onClose={onClose} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Spara/ }))
+
+    // The save is now in flight: neither Escape nor Stäng may close the dialog, or a
+    // failure that lands afterwards would be silently swallowed with nothing on screen,
+    // and a success would land after the user believed they had cancelled.
+    await userEvent.keyboard('{Escape}')
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Stäng' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Stäng' }))
+    expect(onClose).not.toHaveBeenCalled()
+
+    pending.reject(new ApiError(500, 'Kunde inte spara work items.'))
+
+    expect(await screen.findByText('Kunde inte spara work items.')).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
   })
 })
