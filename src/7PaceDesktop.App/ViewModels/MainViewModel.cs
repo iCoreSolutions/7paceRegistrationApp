@@ -38,7 +38,7 @@ public partial class MainViewModel : ObservableObject
         _client = client;
         _settingsStore = settingsStore;
         foreach (var wi in workItemStore.Load()) WorkItems.Add(wi);
-        HoursPerDay = settingsStore.Load().LastDailyHours;
+        HoursPerDay = settingsStore.Load().DailyHours;
     }
 
     /// <summary>Swap in a client rebuilt from updated org/token so settings changes take effect without an app restart.</summary>
@@ -73,7 +73,7 @@ public partial class MainViewModel : ObservableObject
         RecalculateBalance();
 
         var settings = _settingsStore.Load();
-        settings.LastDailyHours = HoursPerDay;
+        settings.DailyHours = HoursPerDay;
         _settingsStore.Save(settings);
     }
 
