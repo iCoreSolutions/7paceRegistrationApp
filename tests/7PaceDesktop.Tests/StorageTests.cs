@@ -86,4 +86,48 @@ public class StorageTests : IDisposable
 
         Directory.Delete(dir, recursive: true);
     }
+
+    [Fact]
+    public void Settings_NewPropertyWinsWhenBothPresent_NewFirst()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "7pace-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "settings.json"),
+            """{"OrganizationName":"icore","DailyHours":10,"LastDailyHours":6}""");
+
+        var settings = new SettingsStore(dir).Load();
+
+        Assert.Equal(10, settings.DailyHours);
+
+        Directory.Delete(dir, recursive: true);
+    }
+
+    [Fact]
+    public void Settings_NewPropertyWinsWhenBothPresent_LegacyFirst()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "7pace-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "settings.json"),
+            """{"OrganizationName":"icore","LastDailyHours":6,"DailyHours":10}""");
+
+        var settings = new SettingsStore(dir).Load();
+
+        Assert.Equal(10, settings.DailyHours);
+
+        Directory.Delete(dir, recursive: true);
+    }
+
+    [Fact]
+    public void Settings_DefaultsWhenFileExistsButEmpty()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "7pace-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "settings.json"), "{}");
+
+        var settings = new SettingsStore(dir).Load();
+
+        Assert.Equal(8, settings.DailyHours);
+
+        Directory.Delete(dir, recursive: true);
+    }
 }
