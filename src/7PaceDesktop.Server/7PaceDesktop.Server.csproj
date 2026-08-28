@@ -9,46 +9,63 @@
 
   <ItemGroup>
     <ProjectReference Include="..\7PaceDesktop.Core\7PaceDesktop.Core.csproj" />
-    <!-- wwwroot/.gitkeep is a git-tracking placeholder (git does not track empty directories),
-         not an app asset. It must not enter the static web assets pipeline: Vite's
-         emptyOutDir: true (see vite.config.ts) deletes it from disk the moment PublishSpa below
-         runs npm run build, and if the Build-time asset scan already recorded it as something to
-         publish, the later copy step fails with MSB3030 (file not found) - verified live. -->
-    <Content Remove="wwwroot\.gitkeep" />
+    <!-- The SDK's default item globbing would otherwise include all of wwwroot/** as Content
+         with CopyToPublishDirectory=PreserveNewest, and ASP.NET Core's static web assets
+         pipeline records those exact files in a manifest FILE written during Build
+         (LoadStaticWebAssetsBuildManifest, in Microsoft.NET.Sdk.StaticWebAssets.Publish.targets,
+         re-reads that manifest from disk during Publish rather than re-scanning the directory).
+         Build happens before PublishSpa (below) runs npm run build and Vite's emptyOutDir:true
+         wipes and regenerates wwwroot under new content-hashed filenames, so any file the
+         default glob captured at Build time - the placeholder .gitkeep, or a stale asset left
+         over from a previous publish such as index-<oldhash>.js - is gone by the time the
+         manifest-driven publish copy step runs, failing with MSB3030 (file not found). Both
+         failure modes were reproduced live. Excluding all of wwwroot from Content stops any
+         such stale entry from ever being recorded; PublishSpa below then copies the actual
+         freshly-built files into the publish output itself, bypassing the static web assets
+         pipeline entirely for this project rather than fighting its build-time manifest cache. -->
+    <Content Remove="wwwroot\**" />
   </ItemGroup>
 
-  <!-- Build the SPA and bundle it into the publish output, so the published executable is the
-       whole app. Local Build/Debug never needs this: run the Vite dev server instead.
+  <!-- Build the SPA and copy it into the publish output directly, so the published executable
+       is the whole app. Local Build/Debug never needs this: run the Vite dev server instead.
 
-       Hooked on "AfterTargets=ComputeFilesToPublish" - the standard ASP.NET Core pattern for
-       folding an external front-end build into "dotnet publish" - rather than "BeforeTargets=
-       Build" or "BeforeTargets=Publish", for two reasons proven out while wiring this up:
+       Hooked on "AfterTargets=ComputeFilesToPublish" - the standard extension point for folding
+       an external front-end build into "dotnet publish" - rather than "BeforeTargets=Build" or
+       "BeforeTargets=Publish", for two reasons proven out while wiring this up:
          1. MSBuild resolves the Tests project's ProjectReference to this project by running
             Server.csproj's own default target (Build), so any hook on "Build" - even guarded by
             Configuration or MSBuildProjectName, both tried and rejected - still fires whenever
             anything that references this project builds in Release (e.g. `dotnet test -c
             Release`, or `dotnet build 7PaceDesktop.slnx -c Release`), forcing Node/npm onto every
             machine that merely builds or tests the solution.
-         2. "BeforeTargets=Publish" avoids that, but still runs too late: ASP.NET Core's static
-            web assets file list is computed as part of Build, which Publish depends on and which
-            completes before a "BeforeTargets=Publish" hook runs - so files written to wwwroot at
-            that point are on disk but never make it into the publish output (verified: the
-            published wwwroot contained only .gitkeep). Adding the built files to
-            ResolvedFileToPublish explicitly, after they are computed, is what actually gets them
-            copied.
+         2. "BeforeTargets=Publish" avoids that, but still runs too late: Build (which Publish
+            depends on) already completes before a "BeforeTargets=Publish" hook runs, so files
+            written to wwwroot at that point are on disk but never make it into the publish
+            output (verified: the published wwwroot contained only .gitkeep).
        "dotnet publish" is never invoked transitively through a plain ProjectReference, so this
-       cannot be dragged into an unrelated project's build the way a Build-time hook can. -->
+       cannot be dragged into an unrelated project's build the way a Build-time hook can.
+
+       The files are copied straight into "$(PublishDir)wwwroot" with a plain Copy task rather
+       than via ResolvedFileToPublish/StaticWebAsset items: with wwwroot excluded from Content
+       above, nothing establishes this project's static web assets at all, so items added to
+       ResolvedFileToPublish here are never picked up by the pipeline's own copy targets, which
+       run off the StaticWebAsset item list instead - verified live: with the Content exclusion
+       in place, a ResolvedFileToPublish-only version of this target produced an empty wwwroot in
+       the publish output on a full clean rebuild. A direct Copy has no dependency on that
+       pipeline or its build-time manifest cache. RemoveDir first so a stale asset from an
+       earlier publish (a different content hash) cannot linger alongside the new one. -->
   <Target Name="PublishSpa" AfterTargets="ComputeFilesToPublish">
     <Exec Command="npm ci" WorkingDirectory="$(MSBuildProjectDirectory)\..\..\web" />
     <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)\..\..\web" />
 
+    <RemoveDir Directories="$(PublishDir)wwwroot" Condition="Exists('$(PublishDir)wwwroot')" />
+
     <ItemGroup>
-      <SpaFiles Include="$(MSBuildProjectDirectory)wwwroot\**" />
-      <ResolvedFileToPublish Include="@(SpaFiles)">
-        <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
-        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      </ResolvedFileToPublish>
+      <SpaFiles Include="$(MSBuildProjectDirectory)\wwwroot\**" />
     </ItemGroup>
+
+    <Copy SourceFiles="@(SpaFiles)"
+          DestinationFiles="@(SpaFiles->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
 
 </Project>
