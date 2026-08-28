@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* Lifted verbatim from src/7PaceDesktop.App/Themes/Palette.*.xaml so the web app looks
+   continuous with the desktop app it replaces. */
+:root {
+  --bg: #F3F3F3;
+  --surface: #FFFFFF;
+  --fg: #1A1A1A;
+  --subtle: #605E5C;
+  --border: #D6D6D6;
+  --accent: #0067C0;
+  --accent-fg: #FFFFFF;
+  --row-alt: #F7F7F7;
+  --chip: #EFEFEF;
+  --sel-bg: rgb(0 103 192 / 0.10);
+  --plan-bg: rgb(0 103 192 / 0.14);
+  --ok: #107C10;
+  --warn: #C77700;
+  --idle: #B9B9B9;
+  --over: #7C5DBF;
+  --danger: #C42B1C;
+  --danger-bg: rgb(196 43 28 / 0.10);
+  --track: #E4E4E4;
+}
+
+.dark {
+  --bg: #1F1F1F;
+  --surface: #2B2B2B;
+  --fg: #F5F5F5;
+  --subtle: #C8C8C8;
+  --border: #3D3D3D;
+  --accent: #60CDFF;
+  --accent-fg: #00243D;
+  --row-alt: #262626;
+  --chip: #343434;
+  --sel-bg: rgb(96 205 255 / 0.14);
+  --plan-bg: rgb(96 205 255 / 0.18);
+  --ok: #6CCB5F;
+  --warn: #FCE100;
+  --idle: #6A6A6A;
+  --over: #B4A0FF;
+  --danger: #FF99A4;
+  --danger-bg: rgb(255 153 164 / 0.12);
+  --track: #3A3A3A;
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+}
+
+/* Focus is never suppressed - the calendar is keyboard-operable. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

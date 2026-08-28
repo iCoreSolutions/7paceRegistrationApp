@@ -11,4 +11,11 @@
     <ProjectReference Include="..\7PaceDesktop.Core\7PaceDesktop.Core.csproj" />
   </ItemGroup>
 
+  <!-- Build the SPA into wwwroot on Release builds and on publish, so the executable is the
+       whole app. Debug builds skip it: run the Vite dev server instead. -->
+  <Target Name="BuildSpa" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="npm ci" WorkingDirectory="$(MSBuildProjectDirectory)\..\..\web" />
+    <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)\..\..\web" />
+  </Target>
+
 </Project>

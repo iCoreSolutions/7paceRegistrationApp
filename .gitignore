@@ -480,3 +480,8 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Web SPA build output (node_modules/ is already covered above)
+web/dist/
+src/7PaceDesktop.Server/wwwroot/*
+!src/7PaceDesktop.Server/wwwroot/.gitkeep
