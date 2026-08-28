@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using PaceDesktop.Core.Services;
 using PaceDesktop.Core.Storage;
@@ -37,6 +38,18 @@ app.MapMonthEndpoints();
 app.MapRegisterEndpoints();
 
 app.MapFallbackToFile("index.html");
+
+// Tests host the app in-process and must not spawn browsers.
+if (builder.Configuration["OpenBrowser"] != "false")
+{
+    app.Lifetime.ApplicationStarted.Register(() =>
+    {
+        var url = app.Urls.FirstOrDefault();
+        if (url is null) return;
+        Console.WriteLine($"7Pace Desktop körs på {url}");
+        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+    });
+}
 
 app.Run();
 

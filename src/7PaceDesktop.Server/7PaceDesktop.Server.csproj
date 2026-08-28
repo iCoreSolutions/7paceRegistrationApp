@@ -5,6 +5,11 @@
     <RootNamespace>PaceDesktop.Server</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>7PaceDesktop</AssemblyName>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -63,6 +68,14 @@
     <ItemGroup>
       <SpaFiles Include="$(MSBuildProjectDirectory)\wwwroot\**" />
     </ItemGroup>
+
+    <!-- Copy with an empty SourceFiles is a silent no-op that still exits 0. That happened once
+         here already: a glob typo made this produce nothing, the publish "succeeded", and a
+         verification false-passed on a stale build manifest before anyone noticed the published
+         wwwroot held only a placeholder file. Fail loudly instead of silently shipping an app
+         with no UI. -->
+    <Error Condition="'@(SpaFiles)' == ''"
+           Text="PublishSpa: no files matched '$(MSBuildProjectDirectory)\wwwroot\**' - the SPA build produced nothing to copy into the publish output. Check that 'npm run build' actually wrote files to wwwroot." />
 
     <Copy SourceFiles="@(SpaFiles)"
           DestinationFiles="@(SpaFiles->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')" />

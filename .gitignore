@@ -37,8 +37,9 @@ bld/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
-# Uncomment if you have tasks that create the project's static files in wwwroot
-#wwwroot/
+# PublishSpa (7PaceDesktop.Server.csproj) builds the SPA straight into wwwroot; nothing here
+# needs tracking, and Vite's emptyOutDir wipes the directory on every build/publish anyway.
+wwwroot/
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/
@@ -483,5 +484,3 @@ $RECYCLE.BIN/
 
 # Web SPA build output (node_modules/ is already covered above)
 web/dist/
-src/7PaceDesktop.Server/wwwroot/*
-!src/7PaceDesktop.Server/wwwroot/.gitkeep

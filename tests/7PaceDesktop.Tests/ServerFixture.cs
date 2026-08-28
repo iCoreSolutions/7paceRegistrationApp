@@ -79,6 +79,7 @@ public sealed class ServerFixture : IDisposable
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseSetting("DataDir", DataDir);
+            builder.UseSetting("OpenBrowser", "false");
             if (settings is not null)
             {
                 foreach (var (key, value) in settings) builder.UseSetting(key, value);
