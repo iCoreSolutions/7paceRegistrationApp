@@ -36,6 +36,17 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
+/**
+ * Wires api.month to resolve the way the real server does: echoing back exactly the
+ * (year, month) it was asked for (see MonthEndpoints.cs, which builds MonthDto from the
+ * request's own query parameters, unconditionally). Use this — never a flat
+ * mockResolvedValue(monthPayload()) — for any test that asserts which (year, month) a
+ * call used, or that exercises more than one load: a mock that ignores its arguments can
+ * silently hide a bug in what the component actually requested.
+ */
+const mockMonthEcho = (over: Partial<Month> = {}) =>
+  vi.mocked(api.month).mockImplementation(async (year, month) => monthPayload({ year, month, ...over }))
+
 describe('MonthView', () => {
   it('renders the fetched month, its totals and its title', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
@@ -65,22 +76,27 @@ describe('MonthView', () => {
   })
 
   it('steps to the next month and refetches', async () => {
-    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    // Echoing (not a fixed payload) so the initial mount — which starts from today's
+    // wall-clock month, whatever that is — has nothing to reconcile, and the assertion
+    // below verifies actual accumulation rather than coincidentally matching a hardcoded
+    // "next" value.
+    mockMonthEcho()
     render(<MonthView />)
-    await screen.findAllByText('Juni 2026')
+    await waitFor(() => expect(api.month).toHaveBeenCalledTimes(1))
+    const [startYear, startMonth] = vi.mocked(api.month).mock.calls[0]
 
-    vi.mocked(api.month).mockResolvedValue(monthPayload({ year: 2026, month: 7 }))
     await userEvent.click(screen.getByRole('button', { name: 'Nästa månad' }))
 
-    await waitFor(() => expect(api.month).toHaveBeenLastCalledWith(2026, 7))
+    const expected = addMonths(startYear, startMonth, 1)
+    await waitFor(() => expect(api.month).toHaveBeenLastCalledWith(expected.year, expected.month))
   })
 
-  it('accumulates rapid clicks on Nästa månad instead of retargeting the same month', async () => {
-    // The mock echoes back exactly the year/month it was asked for, like the real server
-    // does, so the initial mount (which starts from today's wall-clock month, whatever
-    // that is) settles with nothing to reconcile — this test does not depend on today's
-    // date or on any particular starting month.
-    vi.mocked(api.month).mockImplementation(async (year, month) => monthPayload({ year, month }))
+  it('accumulates rapid clicks on Nästa månad instead of retargeting the same month, firing exactly two requests', async () => {
+    // Echoing back exactly the year/month it was asked for, like the real server does, so
+    // the initial mount (which starts from today's wall-clock month, whatever that is)
+    // settles with nothing to reconcile — this test does not depend on today's date or on
+    // any particular starting month.
+    mockMonthEcho()
     render(<MonthView />)
 
     await waitFor(() => expect(api.month).toHaveBeenCalledTimes(1))
@@ -107,6 +123,16 @@ describe('MonthView', () => {
     firstClick.resolve(monthPayload(expectedFirst))
     secondClick.resolve(monthPayload(expectedSecond))
     await waitFor(() => expect(api.month).toHaveBeenCalledTimes(2))
+
+    // waitFor returns the instant the count first reaches 2 — that alone doesn't prove no
+    // further call is on its way on a later tick. Give one a real chance to arrive, then
+    // assert the count is still exactly 2 and the two calls are exactly what's expected.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(api.month).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(api.month).mock.calls).toEqual([
+      [expectedFirst.year, expectedFirst.month],
+      [expectedSecond.year, expectedSecond.month],
+    ])
   })
 
   it('warns when the holiday list could not be fetched', async () => {
