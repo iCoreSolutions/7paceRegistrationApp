@@ -4442,7 +4442,7 @@ git commit -m "feat: drag, week and bulk day selection"
 **Interfaces:**
 - Consumes: `summarize`, `SelectionState` from `selection.ts`; `api.register`, `api.workItems`, `ApiError`; `Month`, `WorkItem`, `FillLine`, `RegisterResponse`.
 - Produces:
-  - `<SelectionPanel month workItems selected onRegistered onClear />`
+  - `<SelectionPanel month workItems selected onRegistered />`
   - `onRegistered(response: RegisterResponse)` — the month view refetches and shows the outcome.
 
 - [ ] **Step 1: Write the failing tests**
@@ -4489,7 +4489,6 @@ const panel = (over: Partial<Parameters<typeof SelectionPanel>[0]> = {}) =>
       workItems={workItems}
       selected={['2026-06-22', '2026-06-23']}
       onRegistered={vi.fn()}
-      onClear={vi.fn()}
       {...over}
     />,
   )
@@ -4586,8 +4585,9 @@ describe('SelectionPanel', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Registrera/ }))
 
-    expect(await screen.findByText(/2026-06-23/)).toBeInTheDocument()
-    expect(screen.getByText(/500/)).toBeInTheDocument()
+    // The bare date also appears in the panel header's date range, so match the failure row's
+    // own "{date}: {error}" text rather than the date alone.
+    expect(await screen.findByText(/2026-06-23: .*500/)).toBeInTheDocument()
   })
 
   it('says nothing was registered when the server refuses on a stale read', async () => {
@@ -4604,7 +4604,7 @@ describe('SelectionPanel', () => {
     panel({ month: month('failed') })
 
     expect(screen.getByRole('button', { name: /Registrera/ })).toBeDisabled()
-    expect(screen.getByText(/kunde inte hämtas/i)).toBeInTheDocument()
+    expect(screen.getByText(/Registrering blockerad/i)).toBeInTheDocument()
     expect(screen.getByText('— h')).toBeInTheDocument()
   })
 
@@ -4639,12 +4639,11 @@ interface Props {
   workItems: WorkItem[]
   selected: string[]
   onRegistered: (response: RegisterResponse) => void
-  onClear: () => void
 }
 
 const EPSILON = 0.001
 
-export function SelectionPanel({ month, workItems, selected, onRegistered, onClear }: Props) {
+export function SelectionPanel({ month, workItems, selected, onRegistered }: Props) {
   const favourite = workItems.find((w) => w.isFavorite) ?? workItems[0]
   const [lines, setLines] = useState<FillLine[]>([])
   const [simulate, setSimulate] = useState(false)
@@ -4710,7 +4709,7 @@ export function SelectionPanel({ month, workItems, selected, onRegistered, onCle
         >
           <span className="shrink-0" style={{ color: 'var(--danger)' }}><Warning /></span>
           <div className="flex flex-col gap-1">
-            <span className="text-[13px] font-semibold">Registrerad tid kunde inte hämtas</span>
+            <span className="text-[13px] font-semibold">Registrering blockerad: kan dubbelbokföra</span>
             <span className="text-xs leading-relaxed" style={{ color: 'var(--subtle)' }}>
               Appen vet inte vad som redan är loggat och skulle riskera att dubbelregistrera.
               Uppdatera för att försöka igen.
@@ -4862,9 +4861,6 @@ export function SelectionPanel({ month, workItems, selected, onRegistered, onCle
           {blocked ? 'Blockerad tills tiden är hämtad' : 'Kalendern hämtas om från 7Pace efteråt'}
         </span>
         {selected.length > 0 && (
-          <button type="button" className="text-[11px] underline" style={{ color: 'var(--subtle)' }} onClick={onClear}>
-            Rensa markering
-          </button>
         )}
       </div>
     </aside>
@@ -4900,7 +4896,6 @@ second child of the `flex min-h-0 flex-1` row, after the calendar block:
             workItems={workItems}
             selected={selection.selected}
             onRegistered={() => void load()}
-            onClear={() => dispatch({ type: 'clear' })}
           />
         )}
 ```
@@ -5690,9 +5685,11 @@ public class LauncherTests
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `dotnet test tests/7PaceDesktop.Tests/7PaceDesktop.Tests.csproj --filter "FullyQualifiedName~LauncherTests"`
-Expected: compile error — `ServerFixture.Configuration` does not exist.
+Expected: the assertion fails because `OpenBrowser` is not set yet. **`ServerFixture.Configuration`
+already exists** — Task 12 added it for its own `Port` round-trip test — so this is a failing
+assertion, not a compile error.
 
-- [ ] **Step 3: Expose configuration from the fixture and disable the browser**
+- [ ] **Step 3: Disable the browser launch in the fixture**
 
 In `tests/7PaceDesktop.Tests/ServerFixture.cs`, add to the `WithWebHostBuilder` callback, beside the
 existing `UseSetting` call:
@@ -5701,19 +5698,9 @@ existing `UseSetting` call:
             builder.UseSetting("OpenBrowser", "false");
 ```
 
-and expose the configuration by adding a property, assigned after `Client` is created:
-
-```csharp
-    public IConfiguration Configuration { get; private set; } = null!;
-```
-
-with, at the end of the constructor:
-
-```csharp
-        Configuration = _factory.Services.GetRequiredService<IConfiguration>();
-```
-
-Add `using Microsoft.Extensions.Configuration;` to the file.
+The `public IConfiguration Configuration { get; private set; }` property and its
+`_factory.Services.GetRequiredService<IConfiguration>()` assignment are already in place from
+Task 12; reuse them rather than adding a second seam.
 
 - [ ] **Step 4: Bind localhost and open the browser**
 
