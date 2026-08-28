@@ -2330,7 +2330,7 @@ git commit -m "feat: month endpoint merging schedule, holidays and registered ti
 - Produces:
   - `record FillLineDto(int WorkItemId, double Hours)`
   - `record RegisterRequestDto(IReadOnlyList<string> Dates, IReadOnlyList<FillLineDto> Lines, bool Simulate)`
-  - `record DayResultDto(string Date, double Hours, string Status, string? Error)` where `Status` is `"ok"` or `"failed"`
+  - `record DayResultDto(string Date, double Hours, string Status, string? Error)` where `Status` is `"ok"`, `"partial"` or `"failed"`. `Hours` is always the **planned** hours for the day, in both real and simulate runs. `"partial"` means some of the day's work item lines posted and some did not, so the day must not be treated as "nothing landed".
   - `record RegisterResponseDto(int PostedEntries, int FailedEntries, int SkippedDays, double TotalHours, IReadOnlyList<DayResultDto> Days)`
   - `RegisterEndpoints.MapRegisterEndpoints(this WebApplication app)` mapping `POST /api/register`
 
@@ -2939,7 +2939,8 @@ export interface RegisterRequest {
 export interface DayResult {
   date: string
   hours: number
-  status: 'ok' | 'failed'
+  // Always the PLANNED hours, in both real and simulate runs.
+  status: 'ok' | 'partial' | 'failed'
   error: string | null
 }
 
@@ -3899,6 +3900,38 @@ git commit -m "feat: month calendar rendering with day states and totals"
 `plannedFor` and `summarize` use only `max(0, expected - logged)`, which the server has already
 computed as `day.remaining`. The split and rounding rules stay in `FillPlanner`.
 
+- [ ] **Step 0: Make the server's dev port configurable**
+
+This is an out-of-band addition, not part of the original Task 12 scope. Task 6 hard-bound Kestrel
+with `builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0))`, which
+overrides `ASPNETCORE_URLS` entirely. That is the correct security posture for the address, but it
+also means the port is always ephemeral — so the dev workflow documented in `web/vite.config.ts`
+(`proxy: { '/api': 'http://127.0.0.1:5111' }`) can never reach the server, and Task 13's manual
+verification step needs it.
+
+Fix it in `src/7PaceDesktop.Server/Program.cs`, replacing the single `Listen` line:
+
+```csharp
+// Loopback-only is the security property and is not configurable. The PORT is, so the Vite dev
+// proxy can target a known one; 0 asks the OS for a free port, which is what a real run uses.
+var port = int.TryParse(builder.Configuration["Port"], out var configured) ? configured : 0;
+builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
+```
+
+Then update the comment in `web/vite.config.ts` so it documents the command that actually works:
+
+```
+    // In development the API lives on the dotnet server; run it with
+    // dotnet run --project src/7PaceDesktop.Server -- --Port=5111
+```
+
+Add a test to `tests/7PaceDesktop.Tests/ServerSmokeTests.cs` (or the fixture's existing file)
+asserting that the configuration key is read — the fixture hosts via `TestServer`, so assert on
+`Configuration["Port"]` round-tripping through `UseSetting`, in the same shape Task 15 uses for
+`OpenBrowser`. Do not attempt to assert a real bound port under `WebApplicationFactory`.
+
+Keep `IPAddress.Loopback` hard-coded. The port is not a security boundary; the address is.
+
 - [ ] **Step 1: Write the failing selection tests**
 
 `web/src/selection.test.ts`:
@@ -3911,9 +3944,18 @@ import {
 import type { Day, DayStatus, Month } from './types'
 import { datesBetween } from './dates'
 
+// The grid starts Monday 2026-06-01, which is ISO week 23, so the week number follows the
+// date's offset from that Monday. Deriving it from the day-of-month instead would give
+// 2026-07-01..05 the same week 23 as 2026-06-01..07, and weekDates would return both runs.
+const GRID_START = Date.UTC(2026, 5, 1)
+const isoWeekFor = (date: string) => {
+  const utc = Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)))
+  return 23 + Math.floor((utc - GRID_START) / 604800000)
+}
+
 const day = (date: string, over: Partial<Day> = {}): Day => ({
   date, expected: 8, logged: 0, remaining: 8, status: 'empty', hitZeroFloor: false,
-  isoWeek: Number(date.slice(8, 10)) <= 7 ? 23 : 24, inMonth: date.startsWith('2026-06'),
+  isoWeek: isoWeekFor(date), inMonth: date.startsWith('2026-06'),
   holidayName: null, existing: [], ...over,
 })
 
@@ -4017,7 +4059,7 @@ describe('bulk selectors', () => {
   it('selects every workday of the month', () => {
     const dates = monthWorkdays(month())
 
-    expect(dates).toHaveLength(21)               // June 2026 weekdays
+    expect(dates).toHaveLength(22)               // June 2026 weekdays: it starts Monday and ends Tuesday
     expect(dates).not.toContain('2026-06-07')
   })
 })
@@ -4796,7 +4838,7 @@ export function SelectionPanel({ month, workItems, selected, onRegistered, onCle
               ? `${result.postedEntries} poster registrerade.`
               : `${result.postedEntries} registrerade, ${result.failedEntries} misslyckades.`}
           </span>
-          {result.days.filter((d) => d.status === 'failed').map((day) => (
+          {result.days.filter((d) => d.status !== 'ok').map((day) => (
             <span key={day.date} style={{ color: 'var(--danger)' }}>{day.date}: {day.error}</span>
           ))}
         </div>
