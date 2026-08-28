@@ -671,8 +671,8 @@ public class MonthPlanTests
 
         var totals = MonthPlan.Unknown(from, to, Plain).TotalsForMonth(2026, 6);
 
-        // 21 weekdays in June 2026.
-        Assert.Equal(168, totals.Expected);
+        // 22 weekdays in June 2026 (it starts on a Monday and ends on a Tuesday): 22 * 8 = 176.
+        Assert.Equal(176, totals.Expected);
         Assert.Equal(0, totals.Logged);
         Assert.Equal(0, totals.Missing);   // unknown days cannot be reported as missing
     }
@@ -2048,10 +2048,10 @@ public class MonthEndpointTests
 
         var month = await server.Client.GetFromJsonAsync<MonthDto>("/api/month?year=2026&month=6");
 
-        // June 2026 has 21 weekdays and, with no holiday data available in tests, no holidays.
-        Assert.Equal(168, month!.Totals.Expected);
+        // June 2026 has 22 weekdays and, with no holiday data available in tests, no holidays.
+        Assert.Equal(176, month!.Totals.Expected);
         Assert.Equal(6, month.Totals.Logged);
-        Assert.Equal(162, month.Totals.Missing);
+        Assert.Equal(170, month.Totals.Missing);
     }
 
     [Fact]
@@ -2136,7 +2136,7 @@ branch:
 ```csharp
             if (settings.HolidayCache.TryGetValue(year, out var cached))
             {
-                foreach (var h in cached) { dates.Add(h.Date); names[h.Date] = h.LocalName; }
+                foreach (var h in cached) { dates.Add(h.Date); names[h.Date] = h.Name; }
                 continue;
             }
 ```
@@ -2144,7 +2144,7 @@ branch:
 and in the fetched branch, after `settings.HolidayCache[year] = holidays;`:
 
 ```csharp
-                foreach (var h in holidays) { dates.Add(h.Date); names[h.Date] = h.LocalName; }
+                foreach (var h in holidays) { dates.Add(h.Date); names[h.Date] = h.Name; }
 ```
 
 replacing the existing `foreach (var h in holidays) dates.Add(h.Date);` line. Finally return:
@@ -5675,16 +5675,15 @@ Add `using Microsoft.Extensions.Configuration;` to the file.
 
 - [ ] **Step 4: Bind localhost and open the browser**
 
-In `src/7PaceDesktop.Server/Program.cs`, add `using System.Diagnostics;` and, immediately after
-`var builder = WebApplication.CreateBuilder(args);`:
+Task 6 already binds loopback on a free port, via
+`builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));`. **Do not add
+`builder.WebHost.UseUrls("http://127.0.0.1:0")` as well** — two competing address configurations
+make Kestrel log an "Overriding address(es)" warning, and every task must end with zero warnings.
+The existing `Listen` call is what satisfies the loopback-only requirement; `app.Urls` is still
+populated from it, so the browser launch below works unchanged.
 
-```csharp
-// Localhost only: nothing off this machine can reach the app, which is half of why the API
-// needs no authentication of its own. Port 0 asks the OS for a free port.
-builder.WebHost.UseUrls("http://127.0.0.1:0");
-```
-
-and immediately before `app.Run();`:
+In `src/7PaceDesktop.Server/Program.cs`, add `using System.Diagnostics;` and, immediately before
+`app.Run();`:
 
 ```csharp
 // Tests host the app in-process and must not spawn browsers.
