@@ -11,7 +11,7 @@ const day = (date: string, over: Partial<Day> = {}): Day => ({
   holidayName: null, existing: [], ...over,
 })
 
-const nonWorking = (date: string): Partial<Day> =>
+const nonWorking = (_date: string): Partial<Day> =>
   ({ status: 'nonWorking' as DayStatus, expected: 0, remaining: 0 })
 
 const month = (over: Partial<Day>[] = []): Month => {
