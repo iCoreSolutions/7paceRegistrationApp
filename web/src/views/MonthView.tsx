@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { api, ApiError } from '../api'
-import type { Month, WorkItem } from '../types'
+import type { Config, Month, Theme, WorkItem } from '../types'
 import { WEEKDAYS, addMonths, datesBetween, formatMonth, weekRows } from '../dates'
 import { DayCell } from '../components/DayCell'
 import { Legend } from '../components/Legend'
@@ -10,10 +10,13 @@ import {
   emptyWorkdays, monthWorkdays, plannedFor, selectionReducer, weekDates,
 } from '../selection'
 import { SelectionPanel } from './SelectionPanel'
+import { SettingsDialog } from './SettingsDialog'
+import { WorkItemsDialog } from './WorkItemsDialog'
 
 const today = new Date()
 
-export function MonthView() {
+export function MonthView({ config, onConfigChanged }: { config: Config; onConfigChanged: (config: Config) => void }) {
+  const [dialog, setDialog] = useState<'settings' | 'workitems' | null>(null)
   const [period, setPeriod] = useState({ year: today.getFullYear(), month: today.getMonth() + 1 })
   const [month, setMonth] = useState<Month | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -96,6 +99,22 @@ export function MonthView() {
   // accumulate off the latest committed target instead of being gated by fetch latency.
   const displayed = month ? { year: month.year, month: month.month } : period
 
+  const cycleTheme = async () => {
+    const order: Theme[] = ['System', 'Light', 'Dark']
+    const next = order[(order.indexOf(config.theme) + 1) % order.length]
+    onConfigChanged({ ...config, theme: next })
+    try {
+      await api.saveConfig({
+        organization: config.organization,
+        token: null,
+        dailyHours: config.dailyHours,
+        theme: next,
+      })
+    } catch {
+      // A failed persist leaves the theme applied for this session only; not worth a banner.
+    }
+  }
+
   const button = 'flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px]'
   const buttonStyle = { borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }
 
@@ -117,8 +136,27 @@ export function MonthView() {
           <button type="button" className={button} style={buttonStyle} onClick={() => void load()}>
             <Refresh /> Uppdatera
           </button>
-          <button type="button" aria-label="Inställningar" className={button} style={buttonStyle}><Gear /></button>
-          <button type="button" aria-label="Tema" className={button} style={buttonStyle}><Moon /></button>
+          <button
+            type="button" className={button} style={buttonStyle}
+            onClick={() => setDialog('workitems')}
+          >
+            Work items
+          </button>
+          <button
+            type="button" aria-label="Inställningar" className={button} style={buttonStyle}
+            onClick={() => setDialog('settings')}
+          >
+            <Gear />
+          </button>
+          <button
+            type="button"
+            aria-label={`Tema: ${config.theme}`}
+            className={button}
+            style={buttonStyle}
+            onClick={() => void cycleTheme()}
+          >
+            <Moon />
+          </button>
         </div>
       </header>
 
@@ -246,6 +284,17 @@ export function MonthView() {
       </div>
 
       {month && <StatusBar month={month} />}
+
+      {dialog === 'settings' && (
+        <SettingsDialog
+          config={config}
+          onSaved={(next) => { onConfigChanged(next); void load() }}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === 'workitems' && (
+        <WorkItemsDialog items={workItems} onSaved={setWorkItems} onClose={() => setDialog(null)} />
+      )}
     </div>
   )
 }

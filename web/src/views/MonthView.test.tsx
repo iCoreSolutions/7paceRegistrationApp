@@ -2,8 +2,14 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MonthView } from './MonthView'
-import type { Month } from '../types'
+import type { Config, Month } from '../types'
 import { addMonths, datesBetween } from '../dates'
+
+const config: Config = {
+  configured: true, organization: 'icore', dailyHours: 8, theme: 'System', hasToken: true,
+}
+
+const renderMonthView = () => render(<MonthView config={config} onConfigChanged={vi.fn()} />)
 
 const monthPayload = (over: Partial<Month> = {}): Month => ({
   year: 2026, month: 6, from: '2026-06-01', to: '2026-07-05',
@@ -51,7 +57,7 @@ describe('MonthView', () => {
   it('renders the fetched month, its totals and its title', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
 
-    render(<MonthView />)
+    renderMonthView()
 
     // The month name legitimately appears twice: in the header title and in the status bar.
     expect((await screen.findAllByText('Juni 2026')).length).toBeGreaterThan(0)
@@ -62,7 +68,7 @@ describe('MonthView', () => {
   it('renders one cell per grid day, including the neighbouring month', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
 
-    render(<MonthView />)
+    renderMonthView()
 
     await waitFor(() => expect(screen.getAllByRole('button', { name: /2026-/ })).toHaveLength(35))
   })
@@ -70,7 +76,7 @@ describe('MonthView', () => {
   it('shows the week-number gutter', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
 
-    render(<MonthView />)
+    renderMonthView()
 
     expect(await screen.findByRole('button', { name: /vecka 23/i })).toBeInTheDocument()
   })
@@ -81,7 +87,7 @@ describe('MonthView', () => {
     // below verifies actual accumulation rather than coincidentally matching a hardcoded
     // "next" value.
     mockMonthEcho()
-    render(<MonthView />)
+    renderMonthView()
     await waitFor(() => expect(api.month).toHaveBeenCalledTimes(1))
     const [startYear, startMonth] = vi.mocked(api.month).mock.calls[0]
 
@@ -97,7 +103,7 @@ describe('MonthView', () => {
     // settles with nothing to reconcile — this test does not depend on today's date or on
     // any particular starting month.
     mockMonthEcho()
-    render(<MonthView />)
+    renderMonthView()
 
     await waitFor(() => expect(api.month).toHaveBeenCalledTimes(1))
     const [startYear, startMonth] = vi.mocked(api.month).mock.calls[0]
@@ -138,7 +144,7 @@ describe('MonthView', () => {
   it('warns when the holiday list could not be fetched', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload({ holidayWarning: 'Kunde inte hämta röda dagar.' }))
 
-    render(<MonthView />)
+    renderMonthView()
 
     expect(await screen.findByText(/Kunde inte hämta röda dagar/)).toBeInTheDocument()
   })
@@ -150,7 +156,7 @@ describe('MonthView', () => {
       days: monthPayload().days.map((d) => ({ ...d, status: 'unknown' as const })),
     }))
 
-    render(<MonthView />)
+    renderMonthView()
 
     expect(await screen.findByText(/kunde inte hämtas/i)).toBeInTheDocument()
     expect(screen.getAllByText('ej hämtad').length).toBeGreaterThan(0)
@@ -158,7 +164,7 @@ describe('MonthView', () => {
 
   it('selects a range by dragging across cells', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
-    render(<MonthView />)
+    renderMonthView()
     await screen.findAllByText('Juni 2026')
 
     const from = screen.getByRole('button', { name: /2026-06-22/ })
@@ -175,7 +181,7 @@ describe('MonthView', () => {
 
   it('leaves a built-up selection intact when a non-primary button presses a cell', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
-    render(<MonthView />)
+    renderMonthView()
     await screen.findAllByText('Juni 2026')
 
     const from = screen.getByRole('button', { name: /2026-06-22/ })
@@ -199,7 +205,7 @@ describe('MonthView', () => {
 
   it('toggles a single day with ctrl-click without clearing the rest', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
-    render(<MonthView />)
+    renderMonthView()
     await screen.findAllByText('Juni 2026')
 
     // A shared session is required here: the top-level userEvent.* calls each start their own
@@ -217,7 +223,7 @@ describe('MonthView', () => {
 
   it('selects a whole week from the gutter', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
-    render(<MonthView />)
+    renderMonthView()
     await screen.findAllByText('Juni 2026')
 
     await userEvent.click(screen.getByRole('button', { name: /vecka 23/i }))
@@ -236,7 +242,7 @@ describe('MonthView', () => {
 
   it('selects every unfilled workday, then clears', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
-    render(<MonthView />)
+    renderMonthView()
     await screen.findAllByText('Juni 2026')
 
     await userEvent.click(screen.getByRole('button', { name: 'Alla tomma dagar' }))
@@ -248,7 +254,7 @@ describe('MonthView', () => {
 
   it('toggles the focused day with the space key', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
-    render(<MonthView />)
+    renderMonthView()
     await screen.findAllByText('Juni 2026')
 
     const cell = screen.getByRole('button', { name: /2026-06-22/ })
@@ -260,11 +266,51 @@ describe('MonthView', () => {
 
   it('badges the planned top-up on selected days', async () => {
     vi.mocked(api.month).mockResolvedValue(monthPayload())
-    render(<MonthView />)
+    renderMonthView()
     await screen.findAllByText('Juni 2026')
 
     await userEvent.click(screen.getByRole('button', { name: /2026-06-22/ }))
 
     expect(screen.getByText('+8 h')).toBeInTheDocument()
+  })
+
+  it('opens and closes the settings dialog from the gear button, by mouse and by keyboard', async () => {
+    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    renderMonthView()
+    await screen.findAllByText('Juni 2026')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Inställningar' }))
+    expect(screen.getByRole('dialog', { name: 'Inställningar' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Stäng' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    // A focusable, real <button> triggers its click on Enter via the browser's own semantics
+    // (see the week-gutter test above), so opening it via keyboard needs no bespoke handler.
+    screen.getByRole('button', { name: 'Inställningar' }).focus()
+    await userEvent.keyboard('{Enter}')
+    expect(screen.getByRole('dialog', { name: 'Inställningar' })).toBeInTheDocument()
+  })
+
+  it('opens the work items dialog from the toolbar button', async () => {
+    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    renderMonthView()
+    await screen.findAllByText('Juni 2026')
+
+    screen.getByRole('button', { name: 'Work items' }).focus()
+    await userEvent.keyboard('{Enter}')
+
+    expect(screen.getByRole('dialog', { name: 'Work items' })).toBeInTheDocument()
+  })
+
+  it('cycles the theme with the moon button and reports the change upward', async () => {
+    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    const onConfigChanged = vi.fn()
+    render(<MonthView config={config} onConfigChanged={onConfigChanged} />)
+    await screen.findAllByText('Juni 2026')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tema: System' }))
+
+    expect(onConfigChanged).toHaveBeenCalledWith({ ...config, theme: 'Light' })
   })
 })
