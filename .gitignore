@@ -41,6 +41,11 @@ bld/
 # needs tracking, and Vite's emptyOutDir wipes the directory on every build/publish anyway.
 wwwroot/
 
+# Tooling-regenerated launch profile: its applicationUrl fights the loopback Listen() call
+# (producing a runtime "Overriding address(es)" warning) and launchBrowser opens a second
+# browser tab beside the one the app's own launcher opens. Never let this drift back in.
+src/7PaceDesktop.Server/Properties/launchSettings.json
+
 # Visual Studio 2017 auto generated files
 Generated\ Files/
 
