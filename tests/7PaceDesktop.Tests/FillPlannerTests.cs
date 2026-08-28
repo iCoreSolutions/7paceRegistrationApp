@@ -178,4 +178,19 @@ public class FillPlannerTests
         Assert.Empty(FillPlanner.Plan(selection, plan, Single()));
         Assert.Equal(new FillSummary(0, 0, 0, 0), FillPlanner.Summarize(selection, plan, Single()));
     }
+
+    [Fact]
+    public void Summarize_AgreesWithPlanOnAZeroTargetSpec()
+    {
+        // A zero-target spec posts nothing, so the preview must report nothing too.
+        var spec = new FillSpec([new FillLine(Sprint, 0)]);
+        var plan = JunePlan();
+        var selection = Days(22);
+
+        var summary = FillPlanner.Summarize(selection, plan, spec);
+        var planned = FillPlanner.Plan(selection, plan, spec);
+
+        Assert.Equal(new FillSummary(0, 0, 0, 0), summary);
+        Assert.Empty(planned);
+    }
 }

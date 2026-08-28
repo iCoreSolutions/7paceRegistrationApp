@@ -30,7 +30,7 @@ public static class FillPlanner
 
         foreach (var date in selection.OrderBy(d => d))
         {
-            if (!TryRemaining(plan, date, out var day, out var remaining)) continue;
+            if (Classify(plan, date, out var day, out var remaining) != DayGate.Fillable) continue;
 
             var scale = remaining / spec.Target;
             var hours = spec.Lines.Select(l => Math.Round(l.Hours * scale, 2)).ToArray();
@@ -56,34 +56,45 @@ public static class FillPlanner
     public static FillSummary Summarize(
         IReadOnlySet<DateOnly> selection, MonthPlan plan, FillSpec spec)
     {
+        // A zero-target spec would post nothing, so the preview must report nothing too.
+        if (spec.Target <= Epsilon) return new FillSummary(0, 0, 0, 0);
+
         int empty = 0, partial = 0, skipped = 0;
         double total = 0;
 
         foreach (var date in selection)
         {
-            if (plan.Day(date) is not { } day) continue;
-            if (day.Status is DayStatus.NonWorking or DayStatus.Unknown) continue;
-
-            if (day.Remaining <= Epsilon) { skipped++; continue; }
+            var gate = Classify(plan, date, out var day, out var remaining);
+            if (gate == DayGate.Ineligible) continue;
+            if (gate == DayGate.AlreadySatisfied) { skipped++; continue; }
 
             if (day.Status == DayStatus.Empty) empty++; else partial++;
-            total += day.Remaining;
+            total += remaining;
         }
 
         return new FillSummary(empty, partial, skipped, Math.Round(total, 2));
     }
 
-    private static bool TryRemaining(MonthPlan plan, DateOnly date, out DayPlan day, out double remaining)
+    private enum DayGate { Ineligible, AlreadySatisfied, Fillable }
+
+    /// <summary>
+    /// The single home for the per-day skip rule shared by <see cref="Plan"/> and
+    /// <see cref="Summarize"/>: a date absent from the plan or on a NonWorking/Unknown day is
+    /// <see cref="DayGate.Ineligible"/> (never counted at all); a day already at or over target is
+    /// <see cref="DayGate.AlreadySatisfied"/> (counted as skipped); anything else is
+    /// <see cref="DayGate.Fillable"/>, with <paramref name="day"/> and <paramref name="remaining"/>
+    /// populated.
+    /// </summary>
+    private static DayGate Classify(MonthPlan plan, DateOnly date, out DayPlan day, out double remaining)
     {
         day = default!;
         remaining = 0;
 
-        if (plan.Day(date) is not { } found) return false;
-        if (found.Status is DayStatus.NonWorking or DayStatus.Unknown) return false;
-        if (found.Remaining <= Epsilon) return false;
+        if (plan.Day(date) is not { } found) return DayGate.Ineligible;
+        if (found.Status is DayStatus.NonWorking or DayStatus.Unknown) return DayGate.Ineligible;
 
         day = found;
         remaining = found.Remaining;
-        return true;
+        return remaining <= Epsilon ? DayGate.AlreadySatisfied : DayGate.Fillable;
     }
 }
