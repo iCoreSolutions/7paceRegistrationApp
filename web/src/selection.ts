@@ -4,6 +4,9 @@ import type { Month } from './types'
 export interface SelectionState {
   selected: string[]
   anchor: string | null
+  // The selection exactly as it stood right before the current Shift+Arrow sequence began.
+  // Always null except mid-sequence (i.e. whenever `anchor` is non-null). See `extend` below.
+  sequenceBase: string[] | null
 }
 
 export type SelectionAction =
@@ -21,47 +24,54 @@ const normalise = (dates: string[]) => [...new Set(dates)].sort()
 export function selectionReducer(state: SelectionState, action: SelectionAction): SelectionState {
   switch (action.type) {
     case 'dragStart':
-      return { selected: [action.date], anchor: action.date }
+      return { selected: [action.date], anchor: action.date, sequenceBase: null }
     case 'dragTo':
       // A dragTo without an anchor means the pointer entered a cell with no drag in progress.
       return state.anchor ? { ...state, selected: datesBetween(state.anchor, action.date) } : state
     case 'dragEnd':
-      return { ...state, anchor: null }
+      return { ...state, anchor: null, sequenceBase: null }
     case 'toggle':
       return {
         ...state,
         anchor: null,
+        sequenceBase: null,
         selected: state.selected.includes(action.date)
           ? state.selected.filter((d) => d !== action.date)
           : normalise([...state.selected, action.date]),
       }
     case 'set':
-      return { selected: normalise(action.dates), anchor: null }
+      return { selected: normalise(action.dates), anchor: null, sequenceBase: null }
     case 'clear':
-      return { selected: [], anchor: null }
+      return { selected: [], anchor: null, sequenceBase: null }
     case 'extend': {
-      // `anchor` doubles here as the keyboard-extension origin: the cell a Shift+Arrow
-      // SEQUENCE began from. It is established once, from `action.from` (the cell that had
-      // focus right before this keypress), the first time a sequence dispatches `extend`
-      // (i.e. while `state.anchor` is still null), and then held fixed across repeated
-      // Shift+Arrow presses in that sequence rather than being re-derived from the sorted
-      // `selected` array each time (that was the bug: `selected[0]` is the lexicographically
-      // smallest date, not where the user started extending from). `focusMove` and every
-      // other action null the anchor out, so the NEXT sequence re-anchors at the current
-      // focus instead of resuming a stale one.
+      // `anchor` is the keyboard-extension origin: the cell a Shift+Arrow SEQUENCE began from.
+      // `sequenceBase` is the selection exactly as it stood right before that sequence began.
+      // Both are established once, on the first `extend` of a sequence (i.e. while
+      // `state.anchor` is still null) - the origin from `action.from` (the cell that had focus
+      // right before this keypress, NOT the sorted `selected` array's first element, which was
+      // the original bug), the base from `state.selected` at that moment - and then held FIXED
+      // across every subsequent Shift+Arrow press in the sequence. `focusMove` and every other
+      // action null both out, so the next sequence re-anchors and re-captures its own base
+      // instead of resuming a stale one.
       //
-      // The resulting range is UNIONED into the existing selection, never replacing it, so a
-      // sequence can only grow the selection — it can't silently shrink days the user already
-      // picked by some other means (drag, ctrl-click, week-click, Alla tomma dagar) just
-      // because one Shift+Arrow range happens not to cover them.
+      // Each press recomputes the result as `sequenceBase` union `range(origin, to)` against
+      // that FIXED base - never by unioning into the just-previous `selected` - so the range
+      // can grow AND shrink symmetrically as focus moves back and forth, while `sequenceBase`
+      // guarantees it can never erase a day that was already selected before the sequence
+      // started (by drag, ctrl-click, week-click or "Alla tomma dagar"). Unioning into the
+      // running selection instead (the first cut at this fix) could grow but never retract:
+      // overshooting past a day and stepping back left it selected regardless, and since this
+      // app posts hours for whatever ends up selected, that is a real over-registration risk,
+      // not just a cosmetic one.
       const origin = state.anchor ?? action.from
-      return { selected: normalise([...state.selected, ...datesBetween(origin, action.to)]), anchor: origin }
+      const base = state.anchor !== null ? (state.sequenceBase ?? []) : state.selected
+      return { selected: normalise([...base, ...datesBetween(origin, action.to)]), anchor: origin, sequenceBase: base }
     }
     case 'focusMove':
       // A plain (non-shift) arrow move only repositions focus - it never touches `selected` -
       // but it does end any in-progress Shift+Arrow sequence, so a later Shift+Arrow re-anchors
-      // at the new focus rather than resuming the interrupted one.
-      return state.anchor ? { ...state, anchor: null } : state
+      // (and re-captures its own base) at the new focus rather than resuming the interrupted one.
+      return state.anchor ? { ...state, anchor: null, sequenceBase: null } : state
   }
 }
 

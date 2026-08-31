@@ -41,7 +41,7 @@ const month = (over: Partial<Day>[] = []): Month => {
   }
 }
 
-const empty = { selected: [], anchor: null }
+const empty = { selected: [], anchor: null, sequenceBase: null }
 
 describe('selectionReducer', () => {
   it('starts a drag on one day', () => {
@@ -142,6 +142,51 @@ describe('selectionReducer', () => {
 
   it('is a no-op when focusMove has nothing to clear', () => {
     expect(selectionReducer(empty, { type: 'focusMove' })).toEqual(empty)
+  })
+
+  it('retracts symmetrically: stepping focus back shrinks the selection to match, dropping the overshoot', () => {
+    // Re-reviewer's exact repro: from a single selected day, extend three days forward, then
+    // step back two. The union-into-running-selection bug held the overshoot (06-17) selected
+    // even after focus returned to 06-16, which would register hours on a day the user backed
+    // away from - unacceptable for an app that writes time.
+    let state = selectionReducer(empty, { type: 'set', dates: ['2026-06-15'] })
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-15', to: '2026-06-16' })
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-16', to: '2026-06-17' })
+    expect(state.selected).toEqual(['2026-06-15', '2026-06-16', '2026-06-17'])
+
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-17', to: '2026-06-16' })
+
+    expect(state.selected).toEqual(['2026-06-15', '2026-06-16'])
+    expect(state.selected).not.toContain('2026-06-17')
+  })
+
+  it('retracts symmetrically in the other direction too: extending left then stepping right drops the overshoot', () => {
+    let state = selectionReducer(empty, { type: 'set', dates: ['2026-06-20'] })
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-20', to: '2026-06-19' })
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-19', to: '2026-06-18' })
+    expect(state.selected).toEqual(['2026-06-18', '2026-06-19', '2026-06-20'])
+
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-18', to: '2026-06-19' })
+
+    expect(state.selected).toEqual(['2026-06-19', '2026-06-20'])
+    expect(state.selected).not.toContain('2026-06-18')
+  })
+
+  it('retracts back to, but never past, the days selected before the sequence began', () => {
+    // A sequence that starts from a pre-existing multi-day selection (e.g. a drag) must be able
+    // to retract all the way back to exactly that base, but the base itself must survive no
+    // matter how far the retraction goes - it was not part of what this sequence added.
+    let state = selectionReducer(empty, { type: 'set', dates: ['2026-06-10', '2026-06-11', '2026-06-12'] })
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-12', to: '2026-06-13' })
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-13', to: '2026-06-14' })
+    expect(state.selected).toEqual(['2026-06-10', '2026-06-11', '2026-06-12', '2026-06-13', '2026-06-14'])
+
+    // Retract all the way back past the extension, to and then through the pre-existing base.
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-14', to: '2026-06-12' })
+    expect(state.selected).toEqual(['2026-06-10', '2026-06-11', '2026-06-12'])
+
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-12', to: '2026-06-10' })
+    expect(state.selected).toEqual(['2026-06-10', '2026-06-11', '2026-06-12']) // the base survives intact
   })
 })
 
