@@ -20,11 +20,17 @@ interface Props {
   tabIndex?: number
 }
 
+// Same vocabulary the visible Legend uses (Tom/Delvis/Klar/Över), lower-cased to read as a
+// trailing descriptor in the spoken sentence rather than a standalone label.
+const STATUS_WORD: Record<'empty' | 'partial' | 'complete' | 'over', string> = {
+  empty: 'tom', partial: 'delvis', complete: 'klar', over: 'över',
+}
+
 function accessibleName(day: Day, plannedHours: number): string {
   const date = day.date
   if (day.status === 'nonWorking') return `${date}, ledig${day.holidayName ? `, ${day.holidayName}` : ''}`
   if (day.status === 'unknown') return `${date}, registrerad tid ej hämtad`
-  const base = `${date}, ${hours(day.logged)} av ${hours(day.expected)} timmar`
+  const base = `${date}, ${hours(day.logged)} av ${hours(day.expected)} timmar, ${STATUS_WORD[day.status]}`
   return plannedHours > 0 ? `${base}, planerat ${hours(plannedHours)} timmar` : base
 }
 

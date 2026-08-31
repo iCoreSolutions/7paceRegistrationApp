@@ -63,7 +63,7 @@ public static class MonthEndpoints
         var names = workItemStore.Load().ToDictionary(i => i.Id, i => i.Name);
         var days = plan.Days.Select(d => new DayDto(
             Date: d.Date.ToString("yyyy-MM-dd"),
-            Expected: d.Expected,
+            Expected: Math.Round(d.Expected, 2),
             Logged: Math.Round(d.Logged, 2),
             Remaining: Math.Round(d.Remaining, 2),
             Status: StatusName(d.Status),

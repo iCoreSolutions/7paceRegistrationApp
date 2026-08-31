@@ -51,6 +51,13 @@ describe('SelectionPanel', () => {
     expect(screen.getByRole('button', { name: /Registrera 16 h/ })).toBeEnabled()
   })
 
+  it('agrees the singular correctly: "1 dag vald", not "1 dag valda"', () => {
+    panel({ selected: ['2026-06-22'] })
+
+    expect(screen.getByText('1 dag vald')).toBeInTheDocument()
+    expect(screen.queryByText('1 dag valda')).not.toBeInTheDocument()
+  })
+
   it('seeds one line on the favourite work item at the full daily target', () => {
     panel()
 
@@ -169,7 +176,11 @@ describe('SelectionPanel', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Registrera/ }))
 
-    expect(await screen.findByText(/Kunde inte hämta redan registrerad tid/)).toBeInTheDocument()
+    const failureText = await screen.findByText(/Kunde inte hämta redan registrerad tid/)
+    expect(failureText).toBeInTheDocument()
+    // A registration failure appears well after the initial render, with focus still on the
+    // Registrera button, so it must be announced to assistive technology, not just painted.
+    expect(screen.getByRole('alert')).toHaveTextContent(/Kunde inte hämta redan registrerad tid/)
   })
 
   it('blocks registering entirely when the month could not be fetched', () => {
@@ -178,6 +189,7 @@ describe('SelectionPanel', () => {
     expect(screen.getByRole('button', { name: /Registrera/ })).toBeDisabled()
     expect(screen.getByText(/Registrering blockerad/i)).toBeInTheDocument()
     expect(screen.getByText('— h')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent(/Registrering blockerad/i)
   })
 
   it('prompts to select days when nothing is selected', () => {

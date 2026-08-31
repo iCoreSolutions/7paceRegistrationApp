@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { api, ApiError } from '../api'
 import type { Config, Month, Theme, WorkItem } from '../types'
-import { WEEKDAYS, addMonths, datesBetween, formatMonth, weekRows } from '../dates'
+import { WEEKDAYS, addMonths, formatMonth, weekRows } from '../dates'
 import { DayCell } from '../components/DayCell'
 import { Legend } from '../components/Legend'
 import { StatusBar } from '../components/StatusBar'
@@ -89,7 +89,11 @@ export function MonthView({ config, onConfigChanged }: { config: Config; onConfi
     const target = document.querySelector<HTMLButtonElement>(`[data-date="${next.date}"]`)
     target?.focus()
     if (event.shiftKey && selection.selected.length > 0) {
-      dispatch({ type: 'set', dates: datesBetween(selection.selected[0], next.date) })
+      dispatch({ type: 'extend', from: date, to: next.date })
+    } else {
+      // Plain arrow movement never changes the selection - it only ends any in-progress
+      // Shift+Arrow sequence, so a later one re-anchors at the new focus.
+      dispatch({ type: 'focusMove' })
     }
   }
 
@@ -197,7 +201,7 @@ export function MonthView({ config, onConfigChanged }: { config: Config; onConfi
       </div>
 
       {loadError && (
-        <div className="flex items-center gap-2 px-4 py-2 text-[13px]" style={{ color: 'var(--danger)' }}>
+        <div role="alert" className="flex items-center gap-2 px-4 py-2 text-[13px]" style={{ color: 'var(--danger)' }}>
           <Warning /> {loadError}
         </div>
       )}
@@ -208,6 +212,7 @@ export function MonthView({ config, onConfigChanged }: { config: Config; onConfi
 
       {month?.loadState === 'failed' && (
         <div
+          role="alert"
           className="mx-4 mt-2 flex gap-2.5 rounded-lg border p-3"
           style={{ borderColor: 'var(--danger)', background: 'var(--danger-bg)' }}
         >

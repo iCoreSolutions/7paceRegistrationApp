@@ -13,6 +13,8 @@ export type SelectionAction =
   | { type: 'toggle'; date: string }
   | { type: 'set'; dates: string[] }
   | { type: 'clear' }
+  | { type: 'extend'; from: string; to: string }
+  | { type: 'focusMove' }
 
 const normalise = (dates: string[]) => [...new Set(dates)].sort()
 
@@ -28,6 +30,7 @@ export function selectionReducer(state: SelectionState, action: SelectionAction)
     case 'toggle':
       return {
         ...state,
+        anchor: null,
         selected: state.selected.includes(action.date)
           ? state.selected.filter((d) => d !== action.date)
           : normalise([...state.selected, action.date]),
@@ -36,6 +39,29 @@ export function selectionReducer(state: SelectionState, action: SelectionAction)
       return { selected: normalise(action.dates), anchor: null }
     case 'clear':
       return { selected: [], anchor: null }
+    case 'extend': {
+      // `anchor` doubles here as the keyboard-extension origin: the cell a Shift+Arrow
+      // SEQUENCE began from. It is established once, from `action.from` (the cell that had
+      // focus right before this keypress), the first time a sequence dispatches `extend`
+      // (i.e. while `state.anchor` is still null), and then held fixed across repeated
+      // Shift+Arrow presses in that sequence rather than being re-derived from the sorted
+      // `selected` array each time (that was the bug: `selected[0]` is the lexicographically
+      // smallest date, not where the user started extending from). `focusMove` and every
+      // other action null the anchor out, so the NEXT sequence re-anchors at the current
+      // focus instead of resuming a stale one.
+      //
+      // The resulting range is UNIONED into the existing selection, never replacing it, so a
+      // sequence can only grow the selection — it can't silently shrink days the user already
+      // picked by some other means (drag, ctrl-click, week-click, Alla tomma dagar) just
+      // because one Shift+Arrow range happens not to cover them.
+      const origin = state.anchor ?? action.from
+      return { selected: normalise([...state.selected, ...datesBetween(origin, action.to)]), anchor: origin }
+    }
+    case 'focusMove':
+      // A plain (non-shift) arrow move only repositions focus - it never touches `selected` -
+      // but it does end any in-progress Shift+Arrow sequence, so a later Shift+Arrow re-anchors
+      // at the new focus rather than resuming the interrupted one.
+      return state.anchor ? { ...state, anchor: null } : state
   }
 }
 

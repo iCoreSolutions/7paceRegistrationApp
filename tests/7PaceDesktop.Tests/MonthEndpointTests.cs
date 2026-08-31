@@ -137,6 +137,25 @@ public class MonthEndpointTests
     }
 
     [Fact]
+    public async Task GetMonth_RoundsExpectedHoursLikeItsLoggedAndRemainingNeighbours()
+    {
+        // A non-clean DailyHours (6.1) plus the pre-holiday 3h reduction computes as the double
+        // 3.0999999999999996 (confirmed via G17/round-trip formatting), not the clean 3.1 that
+        // Math.Round(x, 2) - already applied to Logged, Remaining and every TotalsDto field -
+        // would produce. Expected was the one field skipped.
+        using var server = Configured(dailyHours: 6.1);
+        var settings = server.Settings.Load();
+        settings.HolidayCache[2026] = [new Holiday(new DateOnly(2026, 6, 19), "Midsommarafton")];
+        settings.HolidayCache[2027] = [];
+        server.Settings.Save(settings);
+
+        var month = await server.Client.GetFromJsonAsync<MonthDto>("/api/month?year=2026&month=6");
+
+        Assert.Equal(3.1, Day(month!, 18).Expected);     // the pre-holiday shortened day: 6.1 - 3
+        Assert.Equal(6.1, Day(month!, 15).Expected);      // an ordinary weekday
+    }
+
+    [Fact]
     public async Task GetMonth_RejectsAnImpossibleMonth()
     {
         using var server = Configured();

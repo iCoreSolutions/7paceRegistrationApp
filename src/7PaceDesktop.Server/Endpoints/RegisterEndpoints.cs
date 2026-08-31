@@ -37,7 +37,7 @@ public static class RegisterEndpoints
             var from = dates.Min();
             var to = dates.Max();
             if (to.DayNumber - from.DayNumber + 1 > MaxSpanDays)
-                return Results.BadRequest(new { error = "Markeringen sträcker sig över mer än två månader." });
+                return Results.BadRequest(new { error = $"Markeringen sträcker sig över mer än {MaxSpanDays} dagar." });
 
             var settings = settingsStore.Load();
             var holidays = await holidayService.GetHolidaysAsync(from.Year, to.AddDays(1).Year, ct);

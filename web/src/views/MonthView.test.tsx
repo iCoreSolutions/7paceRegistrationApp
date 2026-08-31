@@ -28,7 +28,13 @@ const monthPayload = (over: Partial<Month> = {}): Month => ({
 
 vi.mock('../api', () => ({
   api: { month: vi.fn(), register: vi.fn(), workItems: vi.fn().mockResolvedValue([]) },
-  ApiError: class extends Error {},
+  // Mirrors the real ApiError's constructor (status, message) so a mocked rejection carries
+  // its intended message through `.message` - the built-in Error constructor only honours
+  // its FIRST argument as the message, so a plain `class extends Error {}` here would silently
+  // turn `new ApiError(500, 'text')`'s message into "500" instead of "text".
+  ApiError: class ApiError extends Error {
+    constructor(public status: number, message: string) { super(message) }
+  },
 }))
 
 const { api } = await import('../api')
@@ -160,6 +166,21 @@ describe('MonthView', () => {
 
     expect(await screen.findByText(/kunde inte hämtas/i)).toBeInTheDocument()
     expect(screen.getAllByText('ej hämtad').length).toBeGreaterThan(0)
+    // A failure that lands after the initial render (e.g. a refresh click) with focus
+    // elsewhere must still be announced to assistive technology. (Two role="alert" banners
+    // are expected here - MonthView's own and the SelectionPanel's differently-worded one for
+    // the same underlying failure - so check across all of them rather than assuming one.)
+    const alerts = screen.getAllByRole('alert').map((el) => el.textContent).join(' ')
+    expect(alerts).toMatch(/kunde inte hämtas/i)
+  })
+
+  it('announces a load error (e.g. the local server itself unreachable) via a live region', async () => {
+    const { ApiError } = await import('../api')
+    vi.mocked(api.month).mockRejectedValue(new ApiError(500, 'Kunde inte nå servern.'))
+
+    renderMonthView()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Kunde inte nå servern/)
   })
 
   it('selects a range by dragging across cells', async () => {
@@ -262,6 +283,36 @@ describe('MonthView', () => {
     await userEvent.keyboard(' ')
 
     expect(cell).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('extends a shift-arrow sequence from where it began, never dropping days already selected', async () => {
+    // Reviewer's exact repro: drag-select 06-10..06-12, move focus back to the anchor end
+    // (06-10), then Shift+ArrowLeft. The buggy code re-anchored on `selected[0]` (the sorted
+    // array's smallest date, which happens to equal 06-10 here too) and REPLACED the
+    // selection with datesBetween(06-10, 06-09) = [06-09, 06-10], silently dropping 06-11 and
+    // 06-12. All four days must remain selected afterwards.
+    vi.mocked(api.month).mockResolvedValue(monthPayload())
+    renderMonthView()
+    await screen.findAllByText('Juni 2026')
+
+    const day10 = screen.getByRole('button', { name: /2026-06-10/ })
+    const day12 = screen.getByRole('button', { name: /2026-06-12/ })
+    await userEvent.pointer([
+      { keys: '[MouseLeft>]', target: day10 },
+      { target: day12 },
+      { keys: '[/MouseLeft]' },
+    ])
+    expect(day10).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /2026-06-11/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(day12).toHaveAttribute('aria-pressed', 'true')
+
+    day10.focus()
+    await userEvent.keyboard('{Shift>}{ArrowLeft}{/Shift}')
+
+    expect(screen.getByRole('button', { name: /2026-06-09/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /2026-06-10/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /2026-06-11/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /2026-06-12/ })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('badges the planned top-up on selected days', async () => {

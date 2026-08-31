@@ -198,6 +198,23 @@ public class RegisterEndpointTests
     }
 
     [Fact]
+    public async Task Register_SpanRejectionMessageDescribesTheDayCountItActuallyChecks()
+    {
+        // The guard is a raw 62-day count, which can legitimately span THREE calendar months
+        // (20 January to 22 March is 62 days), so the message must not claim "two months" -
+        // that describes a check that isn't the one actually being enforced.
+        using var server = Configured();
+
+        var wide = await server.Client.PostAsJsonAsync("/api/register",
+            new RegisterRequestDto(["2026-01-20", "2026-03-23"], [new FillLineDto(Sprint, 8)], false));
+        var body = await wide.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, wide.StatusCode);
+        Assert.DoesNotContain("två månader", body);
+        Assert.Contains("62", body);
+    }
+
+    [Fact]
     public async Task Register_RequiresTheClientHeader()
     {
         using var server = Configured();

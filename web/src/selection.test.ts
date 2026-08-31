@@ -95,6 +95,54 @@ describe('selectionReducer', () => {
 
     expect(state).toEqual(empty)
   })
+
+  it('extends from the cell the sequence began at, unioning into the existing selection', () => {
+    // Reproduces the reviewer's exact repro at the reducer level: a drag selects 10..12, the
+    // sequence begins back at 10, and one Shift+ArrowLeft (from=10, to=09) must grow the
+    // selection to 09..12 rather than replacing it with just 09 and 10.
+    let state = selectionReducer(empty, { type: 'set', dates: ['2026-06-10', '2026-06-11', '2026-06-12'] })
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-10', to: '2026-06-09' })
+
+    expect(state.selected).toEqual(['2026-06-09', '2026-06-10', '2026-06-11', '2026-06-12'])
+  })
+
+  it('holds the sequence origin fixed across repeated extends, ignoring a later `from`', () => {
+    // The first `extend` in a sequence establishes the anchor from `action.from`. A second
+    // `extend` in the SAME sequence must keep using that original anchor, not the `from` it
+    // is called with this time (which is just the cell that had focus a moment ago).
+    let state = selectionReducer(empty, { type: 'extend', from: '2026-06-15', to: '2026-06-16' })
+    expect(state.selected).toEqual(['2026-06-15', '2026-06-16'])
+
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-16', to: '2026-06-17' })
+
+    expect(state.selected).toEqual(['2026-06-15', '2026-06-16', '2026-06-17'])
+    expect(state.anchor).toBe('2026-06-15')
+  })
+
+  it('never shrinks the selection, even when the extended range does not cover everything selected', () => {
+    let state = selectionReducer(empty, { type: 'set', dates: ['2026-06-10', '2026-06-20'] })
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-10', to: '2026-06-11' })
+
+    expect(state.selected).toEqual(['2026-06-10', '2026-06-11', '2026-06-20'])
+  })
+
+  it('breaks an in-progress sequence on a plain focus move, so a later extend re-anchors', () => {
+    let state = selectionReducer(empty, { type: 'extend', from: '2026-06-15', to: '2026-06-16' })
+    expect(state.anchor).toBe('2026-06-15')
+
+    state = selectionReducer(state, { type: 'focusMove' })
+    expect(state.anchor).toBeNull()
+    expect(state.selected).toEqual(['2026-06-15', '2026-06-16']) // focus move never touches selection
+
+    // A fresh sequence now re-anchors at whatever `from` this new extend supplies.
+    state = selectionReducer(state, { type: 'extend', from: '2026-06-20', to: '2026-06-21' })
+    expect(state.selected).toEqual(['2026-06-15', '2026-06-16', '2026-06-20', '2026-06-21'])
+    expect(state.anchor).toBe('2026-06-20')
+  })
+
+  it('is a no-op when focusMove has nothing to clear', () => {
+    expect(selectionReducer(empty, { type: 'focusMove' })).toEqual(empty)
+  })
 })
 
 describe('bulk selectors', () => {

@@ -68,6 +68,27 @@ describe('DayCell', () => {
     }
   })
 
+  it('names the status in the accessible name too, not just the numbers, for every status', () => {
+    // The spec requires the accessible name to give date, hours AND status. Matching only /4/
+    // (the old assertion above) would pass even if a screen-reader user could only infer
+    // complete-vs-partial-vs-over by comparing two spoken numbers - this pins the actual word,
+    // using the same vocabulary the visible Legend already uses (Tom/Delvis/Klar/Över).
+    const expectations: [DayStatus, RegExp][] = [
+      ['empty', /tom/i],
+      ['partial', /delvis/i],
+      ['complete', /klar/i],
+      ['over', /över/i],
+    ]
+
+    for (const [status, word] of expectations) {
+      const { unmount } = render(
+        <DayCell day={day({ status, logged: 4, remaining: 4 })} plannedHours={0} selected={false} />,
+      )
+      expect(screen.getByRole('button')).toHaveAccessibleName(word)
+      unmount()
+    }
+  })
+
   it('exposes selection state to assistive technology', () => {
     render(<DayCell day={day()} plannedHours={0} selected />)
 

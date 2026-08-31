@@ -69,7 +69,9 @@ export function SelectionPanel({ month, workItems, selected, onRegistered }: Pro
         <span className="text-[15px] font-semibold">
           {selected.length === 0
             ? 'Inga dagar valda'
-            : `${selected.length} ${selected.length === 1 ? 'dag' : 'dagar'} valda`}
+            : selected.length === 1
+              ? '1 dag vald'
+              : `${selected.length} dagar valda`}
         </span>
         <span className="text-xs" style={{ color: 'var(--subtle)' }}>
           {selected.length === 0
@@ -80,6 +82,7 @@ export function SelectionPanel({ month, workItems, selected, onRegistered }: Pro
 
       {blocked && (
         <div
+          role="alert"
           className="flex gap-2.5 rounded-lg border p-3"
           style={{ borderColor: 'var(--danger)', background: 'var(--danger-bg)' }}
         >
@@ -201,7 +204,7 @@ export function SelectionPanel({ month, workItems, selected, onRegistered }: Pro
       </div>
 
       {error && (
-        <div className="rounded-md p-2 text-xs" style={{ background: 'var(--danger-bg)', color: 'var(--danger)' }}>
+        <div role="alert" className="rounded-md p-2 text-xs" style={{ background: 'var(--danger-bg)', color: 'var(--danger)' }}>
           {error}
         </div>
       )}
