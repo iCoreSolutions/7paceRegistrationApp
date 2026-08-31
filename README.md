@@ -11,7 +11,7 @@ except the calls to 7Pace itself.
 
 On first run it asks for three things:
 
-1. **Organisation** — your Azure DevOps account name, for example `icore`. Not the project.
+1. **Organisation** — your Azure DevOps account name, for example `icore v3`. Not the project.
 2. **API-token** — from 7Pace: *Settings > Reporting and API*. Stored in Windows Credential
    Manager, never in a file and never sent to the browser.
 3. **A work item** — at least one, to report time against.
